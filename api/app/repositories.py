@@ -16,6 +16,9 @@ from app.schemas import (
     AlertType,
     Coordinates,
     InviteStatus,
+    NdviIngestionBatch,
+    NdviIngestionStatus,
+    NdviSourceType,
     Organization,
     OrganizationCreate,
     OrganizationInvite,
@@ -764,6 +767,134 @@ def distance_meters(lat1: float, lon1: float, lat2: float, lon2: float) -> float
     d_lambda = math.radians(lon2 - lon1)
     a = math.sin(d_phi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(d_lambda / 2) ** 2
     return radius * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+
+def _ndvi_batch_from_row(row: Any) -> NdviIngestionBatch:
+    metadata = _row_get(row, "metadata")
+    return NdviIngestionBatch(
+        id=_row_get(row, "id"),
+        org_id=_row_get(row, "org_id"),
+        region_id=_row_get(row, "region_id"),
+        uploaded_by_user_id=_row_get(row, "uploaded_by_user_id"),
+        source_type=NdviSourceType(_row_get(row, "source_type")),
+        filename=_row_get(row, "filename"),
+        status=NdviIngestionStatus(_row_get(row, "status")),
+        row_count=int(_row_get(row, "row_count") or 0),
+        created_change_count=int(_row_get(row, "created_change_count") or 0),
+        error_message=_row_get(row, "error_message"),
+        metadata=json.loads(metadata or "{}") if isinstance(metadata, str) else (metadata or {}),
+        created_at=_coerce_datetime(_row_get(row, "created_at")) or datetime.now(timezone.utc),
+        processed_at=_coerce_datetime(_row_get(row, "processed_at")),
+    )
+
+
+def create_ndvi_ingestion_batch(
+    *,
+    org_id: int,
+    uploaded_by_user_id: int,
+    region_id: int | None,
+    source_type: NdviSourceType = NdviSourceType.csv,
+    filename: str | None = None,
+    metadata: dict[str, Any] | None = None,
+) -> NdviIngestionBatch:
+    _validate_region_for_org(region_id, org_id)
+    with connection() as conn:
+        if is_sqlite():
+            cursor = conn.execute(
+                """
+                INSERT INTO ndvi_ingestion_batches (org_id, region_id, uploaded_by_user_id, source_type, filename, status, metadata)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (org_id, region_id, uploaded_by_user_id, source_type.value, filename, NdviIngestionStatus.pending.value, json.dumps(metadata or {})),
+            )
+            row = conn.execute("SELECT * FROM ndvi_ingestion_batches WHERE id = ?", (cursor.lastrowid,)).fetchone()
+        else:
+            row = conn.execute(
+                """
+                INSERT INTO ndvi_ingestion_batches (org_id, region_id, uploaded_by_user_id, source_type, filename, status, metadata)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                RETURNING *
+                """,
+                (org_id, region_id, uploaded_by_user_id, source_type.value, filename, NdviIngestionStatus.pending.value, json.dumps(metadata or {})),
+            ).fetchone()
+        return _ndvi_batch_from_row(row)
+
+
+def update_ndvi_ingestion_batch(
+    batch_id: int,
+    org_id: int,
+    *,
+    status_value: NdviIngestionStatus,
+    row_count: int,
+    created_change_count: int,
+    error_message: str | None = None,
+    metadata: dict[str, Any] | None = None,
+    processed: bool = True,
+) -> NdviIngestionBatch | None:
+    with connection() as conn:
+        processed_at_value = datetime.now(timezone.utc).isoformat() if processed else None
+        if is_sqlite():
+            conn.execute(
+                """
+                UPDATE ndvi_ingestion_batches
+                SET status = ?, row_count = ?, created_change_count = ?, error_message = ?,
+                    metadata = COALESCE(?, metadata), processed_at = ?
+                WHERE id = ? AND org_id = ?
+                """,
+                (
+                    status_value.value,
+                    row_count,
+                    created_change_count,
+                    error_message,
+                    json.dumps(metadata) if metadata is not None else None,
+                    processed_at_value,
+                    batch_id,
+                    org_id,
+                ),
+            )
+            row = conn.execute("SELECT * FROM ndvi_ingestion_batches WHERE id = ? AND org_id = ?", (batch_id, org_id)).fetchone()
+        else:
+            row = conn.execute(
+                """
+                UPDATE ndvi_ingestion_batches
+                SET status = %s, row_count = %s, created_change_count = %s, error_message = %s,
+                    metadata = COALESCE(%s, metadata), processed_at = %s
+                WHERE id = %s AND org_id = %s
+                RETURNING *
+                """,
+                (
+                    status_value.value,
+                    row_count,
+                    created_change_count,
+                    error_message,
+                    json.dumps(metadata) if metadata is not None else None,
+                    processed_at_value,
+                    batch_id,
+                    org_id,
+                ),
+            ).fetchone()
+        return _ndvi_batch_from_row(row) if row else None
+
+
+def list_ndvi_ingestion_batches(org_id: int) -> list[NdviIngestionBatch]:
+    with connection() as conn:
+        placeholder = "?" if is_sqlite() else "%s"
+        rows = conn.execute(
+            f"SELECT * FROM ndvi_ingestion_batches WHERE org_id = {placeholder} ORDER BY created_at DESC, id DESC",
+            (org_id,),
+        ).fetchall()
+        return [_ndvi_batch_from_row(row) for row in rows]
+
+
+def get_ndvi_ingestion_batch(batch_id: int, org_id: int) -> NdviIngestionBatch | None:
+    with connection() as conn:
+        placeholder = "?" if is_sqlite() else "%s"
+        row = conn.execute(
+            f"SELECT * FROM ndvi_ingestion_batches WHERE id = {placeholder} AND org_id = {placeholder}",
+            (batch_id, org_id),
+        ).fetchone()
+        return _ndvi_batch_from_row(row) if row else None
+
 
 def create_audio_clip(file_path: Path, *, org_id: int, sensor_id: int) -> int:
     require_sensor(sensor_id, org_id)

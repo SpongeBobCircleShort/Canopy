@@ -107,6 +107,23 @@ CREATE TABLE IF NOT EXISTS satellite_change_events (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+
+CREATE TABLE IF NOT EXISTS ndvi_ingestion_batches (
+    id BIGSERIAL PRIMARY KEY,
+    org_id BIGINT NOT NULL REFERENCES organizations(id),
+    region_id BIGINT REFERENCES regions(id),
+    uploaded_by_user_id BIGINT NOT NULL REFERENCES users(id),
+    source_type TEXT NOT NULL DEFAULT 'csv',
+    filename TEXT,
+    status TEXT NOT NULL DEFAULT 'pending',
+    row_count INTEGER NOT NULL DEFAULT 0,
+    created_change_count INTEGER NOT NULL DEFAULT 0,
+    error_message TEXT,
+    metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    processed_at TIMESTAMPTZ
+);
+
 CREATE TABLE IF NOT EXISTS alerts (
     id BIGSERIAL PRIMARY KEY,
     org_id BIGINT NOT NULL REFERENCES organizations(id),
@@ -136,6 +153,7 @@ CREATE INDEX IF NOT EXISTS idx_sensors_org ON sensors (org_id);
 CREATE INDEX IF NOT EXISTS idx_sensors_location ON sensors USING GIST (location);
 CREATE INDEX IF NOT EXISTS idx_audio_clips_org ON audio_clips (org_id);
 CREATE INDEX IF NOT EXISTS idx_satellite_changes_org ON satellite_change_events (org_id);
+CREATE INDEX IF NOT EXISTS idx_ndvi_batches_org ON ndvi_ingestion_batches (org_id);
 CREATE INDEX IF NOT EXISTS idx_satellite_changes_geometry ON satellite_change_events USING GIST (geometry);
 CREATE INDEX IF NOT EXISTS idx_alerts_org ON alerts (org_id);
 CREATE INDEX IF NOT EXISTS idx_alerts_location ON alerts USING GIST (location);

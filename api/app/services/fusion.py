@@ -72,6 +72,9 @@ def run_fusion(org_id: int, request: FusionRunRequest) -> FusionRunResponse:
                 "fusion_rule_version": FUSION_RULE_VERSION,
                 "created_at": now.isoformat(),
             }
+            for key in ("baseline_ndvi", "recent_ndvi", "ndvi_delta", "ingestion_batch_id", "loss_threshold", "row_number"):
+                if change.metadata and key in change.metadata:
+                    metadata[key] = change.metadata[key]
             created.append(
                 create_alert(
                     org_id,

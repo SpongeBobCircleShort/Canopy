@@ -149,6 +149,23 @@ def initialize_database() -> None:
                 updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
             );
 
+
+            CREATE TABLE IF NOT EXISTS ndvi_ingestion_batches (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                org_id INTEGER NOT NULL REFERENCES organizations(id),
+                region_id INTEGER REFERENCES regions(id),
+                uploaded_by_user_id INTEGER NOT NULL REFERENCES users(id),
+                source_type TEXT NOT NULL DEFAULT 'csv',
+                filename TEXT,
+                status TEXT NOT NULL DEFAULT 'pending',
+                row_count INTEGER NOT NULL DEFAULT 0,
+                created_change_count INTEGER NOT NULL DEFAULT 0,
+                error_message TEXT,
+                metadata TEXT NOT NULL DEFAULT '{}',
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                processed_at TEXT
+            );
+
             CREATE TABLE IF NOT EXISTS alerts (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 org_id INTEGER NOT NULL REFERENCES organizations(id),
@@ -178,6 +195,7 @@ def initialize_database() -> None:
             CREATE INDEX IF NOT EXISTS idx_sensors_lat_lon ON sensors (lat, lon);
             CREATE INDEX IF NOT EXISTS idx_audio_clips_org ON audio_clips (org_id);
             CREATE INDEX IF NOT EXISTS idx_satellite_changes_org ON satellite_change_events (org_id);
+            CREATE INDEX IF NOT EXISTS idx_ndvi_batches_org ON ndvi_ingestion_batches (org_id);
             CREATE INDEX IF NOT EXISTS idx_satellite_changes_lat_lon ON satellite_change_events (latitude, longitude);
             CREATE INDEX IF NOT EXISTS idx_alerts_org ON alerts (org_id);
             CREATE INDEX IF NOT EXISTS idx_alerts_lat_lon ON alerts (lat, lon);

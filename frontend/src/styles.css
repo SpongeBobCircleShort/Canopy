@@ -222,3 +222,81 @@ button:disabled {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+.fused-alert-card,
+.satellite-change-card {
+  background: #f8fafc;
+  border: 1px solid #d8e8d0;
+  border-radius: 16px;
+  margin-top: 12px;
+  padding: 14px;
+}
+
+.fused-alert-card {
+  border-color: #c4b5fd;
+  box-shadow: inset 4px 0 0 #8b5cf6;
+}
+
+.fusion-metadata,
+.fusion-result,
+.card-help {
+  color: #476158;
+  font-size: 0.88rem;
+  margin: 8px 0 12px;
+}
+
+.pill.satellite {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.satellite-list {
+  grid-column: 1 / -1;
+}
+
+.satellite-change-card p {
+  color: #476158;
+  margin: 6px 0 0;
+}
+
+.workflow-grid .satellite-card {
+  grid-column: span 2;
+}
+
+.metrics-grid {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+@media (max-width: 1100px) {
+  .metrics-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .workflow-grid .satellite-card {
+    grid-column: span 2;
+  }
+}
+
+@media (max-width: 900px) {
+  .metrics-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .workflow-grid .satellite-card {
+    grid-column: auto;
+  }
+}
+
+.workflow-grid .ndvi-card {
+  grid-column: span 2;
+}
+
+.ndvi-list {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 900px) {
+  .workflow-grid .ndvi-card {
+    grid-column: auto;
+  }
+}

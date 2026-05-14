@@ -67,8 +67,11 @@ Region payloads accept `name`, optional `description`, and optional `boundary` a
 | Upload clips to own org sensors | Yes | Yes |
 | Update alert status | Yes | No |
 | Export alert CSV | Yes | No |
+| Read satellite changes | Yes | Yes |
+| Create/delete satellite changes | Yes | No |
+| Run fusion | Yes | No |
 
-Tenant isolation is enforced for regions, sensors, clips, alerts, status updates, CSV export, and organization invites. Invite tokens are stored raw for the MVP so local demos can copy them from the API response; production should store hashed invite tokens and send invite links by email. Team/project hierarchy and fine-grained field permissions remain deferred.
+Tenant isolation is enforced for regions, sensors, clips, alerts, satellite changes, fusion runs, status updates, CSV export, and organization invites. Invite tokens are stored raw for the MVP so local demos can copy them from the API response; production should store hashed invite tokens and send invite links by email. Team/project hierarchy and fine-grained field permissions remain deferred.
 
 ## Persistence
 
@@ -79,3 +82,142 @@ The Docker stack uses PostgreSQL/PostGIS. Tests and simple local runs can use SQ
 - `GET /api/satellite`
 - `POST /api/satellite/analyze`
 - `POST /api/labels`
+
+## Satellite changes (manual/stub MVP)
+
+This is a manual/stub satellite-change workflow. Real Sentinel/NDVI processing is deferred.
+
+- `GET /api/satellite-changes` lists satellite-change events for the authenticated user's organization. Admins and members can read their own org events.
+- `POST /api/satellite-changes` creates a manual satellite-change event. Requires `admin`.
+- `GET /api/satellite-changes/{change_id}` returns an event only if it belongs to the authenticated user's organization.
+- `DELETE /api/satellite-changes/{change_id}` deletes an event in the authenticated user's organization. Requires `admin`.
+
+Create payload fields include `region_id`, `source` (defaults to `manual`), `change_type` (`ndvi_drop`, `canopy_loss`, `vegetation_stress`, `burn_scar`, or `unknown`), `severity_score` from `0.0` to `1.0`, `confidence` from `0.0` to `1.0`, optional observation/baseline timestamps, `latitude`, `longitude`, `geometry`, `description`, and `metadata`. If `region_id` is provided, it must belong to the current organization.
+
+Example:
+
+```bash
+curl -s -X POST http://localhost:8000/api/satellite-changes \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d "{\"region_id\":$REGION_ID,\"source\":\"manual\",\"change_type\":\"canopy_loss\",\"severity_score\":0.8,\"confidence\":0.9,\"latitude\":-3.4654,\"longitude\":-62.2160,\"description\":\"Manual canopy-loss observation near FLU-Demo\"}" \
+  | python -m json.tool
+```
+
+## Fusion
+
+- `POST /api/fusion/run` runs the admin-only rule-based fusion service for the current organization.
+- The service only reads acoustic alerts and satellite changes in the authenticated user's organization, respects `distance_meters`, `time_window_days`, `min_acoustic_confidence`, and `min_satellite_severity`, and avoids duplicate fused alerts for the same acoustic/satellite pair.
+
+Default request:
+
+```json
+{
+  "time_window_days": 14,
+  "distance_meters": 500,
+  "min_acoustic_confidence": 0.65,
+  "min_satellite_severity": 0.3
+}
+```
+
+Fusion uses this score:
+
+```text
+fusion_score =
+  0.45 * acoustic_confidence
+  + 0.35 * satellite severity_score
+  + 0.10 * satellite confidence
+  + 0.10 * recurrence_bonus
+```
+
+Fused alert metadata includes `acoustic_alert_id`, `satellite_change_id`, `acoustic_confidence`, `satellite_severity_score`, `satellite_confidence`, `distance_meters`, `fusion_score`, and `fusion_rule_version`.
+
+Examples:
+
+```bash
+# Login
+TOKEN=$(curl -s -X POST http://localhost:8000/api/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"demo@example.org","password":"correct-horse-battery"}' \
+  | python -c 'import json,sys; print(json.load(sys.stdin)["access_token"])')
+
+# Create a manual satellite change
+SATELLITE_CHANGE_ID=$(curl -s -X POST http://localhost:8000/api/satellite-changes \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d "{\"region_id\":$REGION_ID,\"source\":\"manual\",\"change_type\":\"canopy_loss\",\"severity_score\":0.8,\"confidence\":0.9,\"latitude\":-3.4654,\"longitude\":-62.2160,\"description\":\"Manual canopy-loss observation near FLU-Demo\"}" \
+  | python -c 'import json,sys; print(json.load(sys.stdin)["id"])')
+
+# Run fusion
+curl -s -X POST http://localhost:8000/api/fusion/run \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"time_window_days":14,"distance_meters":500,"min_acoustic_confidence":0.65,"min_satellite_severity":0.3}' \
+  | python -m json.tool
+
+# List fused alerts
+curl -s -H "Authorization: Bearer $TOKEN" \
+  'http://localhost:8000/api/alerts?type=fusion' | python -m json.tool
+
+# Export CSV with fusion metadata
+curl -L -H "Authorization: Bearer $TOKEN" \
+  'http://localhost:8000/api/alerts/export?format=csv' -o canopy-alerts-with-fusion.csv
+```
+
+## Browser demo flow
+
+1. Sign up or log in from the React dashboard.
+2. Create a region.
+3. Create a sensor.
+4. Upload an audio clip, such as a file named `chainsaw.wav`, to generate an acoustic alert.
+5. Create a manual satellite-change event near the sensor.
+6. Run fusion.
+7. Inspect the fused alert in the dashboard list/map.
+8. Export alert CSV and verify the fusion metadata columns.
+
+## NDVI ingestion
+
+This is CSV/sample-based NDVI ingestion. Live Sentinel/Google Earth Engine integration is deferred.
+
+- `POST /api/ndvi/upload-csv` accepts multipart CSV upload. Requires `admin`.
+- `GET /api/ndvi/batches` lists NDVI ingestion batches for the authenticated user's organization. Admins and members can list.
+- `GET /api/ndvi/batches/{batch_id}` returns one org-scoped batch.
+
+Upload form fields:
+
+- `file`: CSV file.
+- `region_id`: optional region to assign to generated satellite-change events. It must belong to the current organization.
+- `loss_threshold`: optional, default `-0.15`.
+- `default_confidence`: optional, default `0.75`.
+
+Required CSV columns are `latitude`, `longitude`, `baseline_ndvi`, and `recent_ndvi`. Optional columns are `region_id`, `baseline_start`, `baseline_end`, `observation_start`, `observation_end`, `description`, and `confidence`.
+
+For each row:
+
+```text
+ndvi_delta = recent_ndvi - baseline_ndvi
+severity_score = min(abs(ndvi_delta) / 0.5, 1.0)
+```
+
+Rows are skipped unless `ndvi_delta <= loss_threshold`. Generated satellite changes use `source=csv_ndvi`, `change_type=ndvi_drop`, and metadata containing `baseline_ndvi`, `recent_ndvi`, `ndvi_delta`, `loss_threshold`, `ingestion_batch_id`, and `row_number`.
+
+Example:
+
+```bash
+curl -s -X POST http://localhost:8000/api/ndvi/upload-csv \
+  -H "Authorization: Bearer $TOKEN" \
+  -F "region_id=$REGION_ID" \
+  -F 'loss_threshold=-0.15' \
+  -F 'default_confidence=0.75' \
+  -F 'file=@docs/sample-data/ndvi_sample.csv;type=text/csv' \
+  | python -m json.tool
+
+curl -s -H "Authorization: Bearer $TOKEN" http://localhost:8000/api/ndvi/batches | python -m json.tool
+curl -s -H "Authorization: Bearer $TOKEN" http://localhost:8000/api/satellite-changes | python -m json.tool
+curl -s -X POST http://localhost:8000/api/fusion/run \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"time_window_days":14,"distance_meters":500,"min_acoustic_confidence":0.65,"min_satellite_severity":0.3}' \
+  | python -m json.tool
+curl -s -H "Authorization: Bearer $TOKEN" 'http://localhost:8000/api/alerts?type=fusion' | python -m json.tool
+```

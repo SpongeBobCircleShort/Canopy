@@ -155,6 +155,7 @@ class SatelliteChangeSource(str, Enum):
     sentinel_stub = "sentinel_stub"
     landsat_stub = "landsat_stub"
     ndvi_stub = "ndvi_stub"
+    csv_ndvi = "csv_ndvi"
 
 
 class SatelliteChangeType(str, Enum):
@@ -187,6 +188,43 @@ class SatelliteChangeResponse(SatelliteChangeCreate):
     org_id: int
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class NdviIngestionStatus(str, Enum):
+    pending = "pending"
+    processed = "processed"
+    failed = "failed"
+
+
+class NdviSourceType(str, Enum):
+    csv = "csv"
+    geojson = "geojson"
+    json = "json"
+
+
+class NdviIngestionBatch(BaseModel):
+    id: int
+    org_id: int
+    region_id: int | None = None
+    uploaded_by_user_id: int
+    source_type: NdviSourceType
+    filename: str | None = None
+    status: NdviIngestionStatus
+    row_count: int = 0
+    created_change_count: int = 0
+    error_message: str | None = None
+    metadata: dict[str, Any] | None = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    processed_at: datetime | None = None
+
+
+class NdviUploadResponse(BaseModel):
+    batch_id: int
+    status: NdviIngestionStatus
+    row_count: int
+    created_change_count: int
+    created_satellite_change_ids: list[int]
+    skipped_count: int
 
 
 class FusionRunRequest(BaseModel):

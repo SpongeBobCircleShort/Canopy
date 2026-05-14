@@ -44,6 +44,43 @@ export async function fetchRegions(token) {
   return request('/api/regions', { headers: authHeaders(token) })
 }
 
+export async function fetchSatelliteChanges(token) {
+  return request('/api/satellite-changes', { headers: authHeaders(token) })
+}
+
+export async function createSatelliteChange(token, payload) {
+  return request('/api/satellite-changes', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders(token) },
+    body: JSON.stringify(payload),
+  })
+}
+
+export async function runFusion(token, payload = {}) {
+  return request('/api/fusion/run', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders(token) },
+    body: JSON.stringify(payload),
+  })
+}
+
+export async function fetchNdviBatches(token) {
+  return request('/api/ndvi/batches', { headers: authHeaders(token) })
+}
+
+export async function uploadNdviCsv(token, { regionId, lossThreshold, defaultConfidence, file }) {
+  const formData = new FormData()
+  if (regionId) formData.set('region_id', regionId)
+  formData.set('loss_threshold', lossThreshold ?? -0.15)
+  formData.set('default_confidence', defaultConfidence ?? 0.75)
+  formData.set('file', file)
+  return request('/api/ndvi/upload-csv', {
+    method: 'POST',
+    headers: authHeaders(token),
+    body: formData,
+  })
+}
+
 export async function signup({ name, email, password, organization_name, invite_token }) {
   return request('/api/auth/signup', {
     method: 'POST',

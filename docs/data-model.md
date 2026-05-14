@@ -34,3 +34,24 @@ Users include `role` and nullable `organization_id`, though the MVP signup flow 
 ## Invite model
 
 Organization admins can create pending member invites. Invite acceptance through signup validates token status, expiration, and email match, then creates the user in the existing organization and marks the invite accepted. Raw invite token storage is an MVP limitation documented for replacement with hashed tokens before production use.
+
+## NDVI ingestion batches
+
+`ndvi_ingestion_batches` tracks CSV/sample NDVI ingestion runs that generate satellite-change events.
+
+| Field | Notes |
+| --- | --- |
+| `id` | Batch id |
+| `org_id` | Tenant owner |
+| `region_id` | Optional region context for generated changes |
+| `uploaded_by_user_id` | Admin user that uploaded the CSV |
+| `source_type` | `csv` for the MVP |
+| `filename` | Original uploaded filename |
+| `status` | `pending`, `processed`, or `failed` |
+| `row_count` | CSV data rows parsed |
+| `created_change_count` | Satellite-change events created from rows beyond threshold |
+| `error_message` | Validation/processing error if failed |
+| `metadata` | JSON settings such as `loss_threshold`, `default_confidence`, and created ids |
+| `created_at` / `processed_at` | Batch lifecycle timestamps |
+
+Generated `satellite_change_events` use `source=csv_ndvi`, `change_type=ndvi_drop`, and metadata with NDVI provenance (`baseline_ndvi`, `recent_ndvi`, `ndvi_delta`, `loss_threshold`, `ingestion_batch_id`, `row_number`).

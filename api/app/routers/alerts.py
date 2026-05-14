@@ -1,4 +1,5 @@
 import csv
+import json
 from datetime import datetime
 from io import StringIO
 
@@ -82,7 +83,27 @@ def export_alerts(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Only csv export is supported")
     buffer = StringIO()
     writer = csv.writer(buffer)
-    writer.writerow(["id", "type", "status", "priority", "description", "latitude", "longitude", "sensor_id", "created_at"])
+    writer.writerow([
+        "id",
+        "type",
+        "status",
+        "priority",
+        "description",
+        "latitude",
+        "longitude",
+        "sensor_id",
+        "created_at",
+        "classifier_label",
+        "classifier_confidence",
+        "fusion_score",
+        "acoustic_alert_id",
+        "satellite_change_id",
+        "baseline_ndvi",
+        "recent_ndvi",
+        "ndvi_delta",
+        "ingestion_batch_id",
+        "metadata",
+    ])
     for alert in _filtered_alerts(org_id_for_user(current_user), status_value, type_value, sensor_id, start_time, end_time, bbox):
         writer.writerow(
             [
@@ -95,6 +116,16 @@ def export_alerts(
                 alert.location.lon,
                 alert.sensor_id,
                 alert.created_at.isoformat(),
+                alert.classifier_label or "",
+                alert.classifier_confidence if alert.classifier_confidence is not None else "",
+                alert.metadata.get("fusion_score", "") if alert.metadata else "",
+                alert.metadata.get("acoustic_alert_id", "") if alert.metadata else "",
+                alert.metadata.get("satellite_change_id", "") if alert.metadata else "",
+                alert.metadata.get("baseline_ndvi", "") if alert.metadata else "",
+                alert.metadata.get("recent_ndvi", "") if alert.metadata else "",
+                alert.metadata.get("ndvi_delta", "") if alert.metadata else "",
+                alert.metadata.get("ingestion_batch_id", "") if alert.metadata else "",
+                json.dumps(alert.metadata or {}, sort_keys=True),
             ]
         )
     return Response(

@@ -158,4 +158,280 @@ curl -s -X POST -H "Authorization: Bearer $TOKEN" "http://localhost:8000/api/org
 
 ## Current RBAC scope
 
-Canopy now enforces organization scoping for regions, sensors, clip uploads, alerts, alert status updates, and CSV exports. Admin users can create/list/revoke member invites, create regions/sensors, update statuses, and export CSV. Members can read org data and upload clips to sensors in their org. Team/project hierarchy and fine-grained role policies are deferred.
+Canopy now enforces organization scoping for regions, sensors, clip uploads, alerts, satellite changes, fusion runs, alert status updates, and CSV exports. Admin users can create/list/revoke member invites, create regions/sensors/satellite changes, run fusion, update statuses, and export CSV. Members can read org data and satellite changes and upload clips to sensors in their org. Team/project hierarchy and fine-grained role policies are deferred.
+
+## Manual satellite-change + fusion MVP
+
+This is a manual/stub satellite-change workflow. Real Sentinel/NDVI processing is deferred. The browser dashboard lets admins create a satellite-change event by hand near a sensor, then run the lightweight fusion rule to link that event with acoustic alerts from uploaded clips. No Earth Engine, raster, GDAL, or real ML dependencies are included.
+
+Fusion uses this rule:
+
+```text
+fusion_score =
+  0.45 * acoustic_confidence
+  + 0.35 * satellite severity_score
+  + 0.10 * satellite confidence
+  + 0.10 * recurrence_bonus
+```
+
+The created fused alert stores provenance in `metadata`: `acoustic_alert_id`, `satellite_change_id`, `acoustic_confidence`, `satellite_severity_score`, `satellite_confidence`, `distance_meters`, `fusion_score`, and `fusion_rule_version`. Alert CSV export includes these fields where available.
+
+### Browser demo flow
+
+1. Open <http://localhost:5173> and sign up or log in.
+2. Create a region.
+3. Create a sensor in or near that region.
+4. Upload a demo audio file named `chainsaw.wav` to generate an acoustic alert from the placeholder classifier.
+5. Use the **Manual satellite change** panel to create a nearby `canopy_loss`, `ndvi_drop`, or other stub satellite-change event.
+6. Click **Run Fusion** as an admin.
+7. Inspect the fused alert in the alert list and map. Fused alerts display `fusion_score`, `acoustic_alert_id`, and `satellite_change_id`.
+8. Click **Export alerts CSV** to download alerts with fusion metadata columns.
+
+### Curl satellite-change and fusion demo
+
+The earlier MVP curl flow signs up/logs in, creates a region/sensor, and uploads a clip. Continue from the same `TOKEN`, `REGION_ID`, and `SENSOR_ID` values:
+
+```bash
+# Login and capture a token if needed
+TOKEN=$(curl -s -X POST http://localhost:8000/api/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"demo@example.org","password":"correct-horse-battery"}' \
+  | python -c 'import json,sys; print(json.load(sys.stdin)["access_token"])')
+
+# Create a manual/stub satellite-change event near the demo sensor
+SATELLITE_CHANGE_ID=$(curl -s -X POST http://localhost:8000/api/satellite-changes \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d "{\"region_id\":$REGION_ID,\"source\":\"manual\",\"change_type\":\"canopy_loss\",\"severity_score\":0.8,\"confidence\":0.9,\"latitude\":-3.4654,\"longitude\":-62.2160,\"description\":\"Manual canopy-loss observation near FLU-Demo\"}" \
+  | python -c 'import json,sys; print(json.load(sys.stdin)["id"])')
+
+# Run the default fusion rule
+curl -s -X POST http://localhost:8000/api/fusion/run \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"time_window_days":14,"distance_meters":500,"min_acoustic_confidence":0.65,"min_satellite_severity":0.3}' \
+  | python -m json.tool
+
+# List fused alerts
+curl -s -H "Authorization: Bearer $TOKEN" \
+  'http://localhost:8000/api/alerts?type=fusion' | python -m json.tool
+
+# Export CSV with fusion metadata columns
+curl -L -H "Authorization: Bearer $TOKEN" \
+  'http://localhost:8000/api/alerts/export?format=csv' -o canopy-alerts-with-fusion.csv
+```
+
+## Verified MVP Demo
+
+Use this checklist to validate the demo-ready manual satellite-change + fusion MVP in an environment with package registry and Docker access.
+
+### Install dependencies
+
+```bash
+cd api
+python -m pip install -r requirements.txt -r requirements-dev.txt
+
+cd ../frontend
+npm install
+```
+
+### Run tests and builds
+
+```bash
+# Backend
+python -m compileall api/app api/tests
+cd api && pytest -q
+
+# Frontend
+cd ../
+python -m json.tool frontend/package.json >/tmp/package.json.valid
+cd frontend && npm test
+cd frontend && npm run build
+
+# Repo/Docker configuration
+cd ../
+git diff --check
+docker compose config
+```
+
+### Run the Docker stack
+
+```bash
+docker compose up --build
+```
+
+Expected services:
+
+- PostGIS database on `localhost:5432`
+- FastAPI API on <http://localhost:8000>
+- React/Vite frontend on <http://localhost:5173>
+
+### Run the API smoke-test script
+
+With the API running locally, run:
+
+```bash
+scripts/demo_mvp_flow.sh
+```
+
+The script uses safe generated local demo credentials, fails fast on HTTP or assertion errors, prints the key `org_id`, `region_id`, `sensor_id`, `acoustic_alert_id`, `satellite_change_id`, and `fused_alert_id`, and writes the exported CSV to `demo-output/canopy-alerts-with-fusion.csv` by default.
+
+Optional environment overrides:
+
+```bash
+API_BASE_URL=http://localhost:8000 \
+DEMO_EMAIL=canopy-demo@example.org \
+OUTPUT_DIR=demo-output \
+scripts/demo_mvp_flow.sh
+```
+
+### Browser demo flow
+
+1. Open <http://localhost:5173>.
+2. Sign up or log in.
+3. Create a region.
+4. Create a sensor in that region.
+5. Upload a small audio clip named `chainsaw.wav` to create an acoustic alert through the placeholder classifier.
+6. Create a manual satellite-change event near the sensor.
+7. Click **Run Fusion**.
+8. Confirm the fused alert appears on the map and in the alert list with `fusion_score`, `acoustic_alert_id`, and `satellite_change_id`.
+9. Export the CSV and confirm fusion metadata columns are present.
+
+When browser automation or screenshot tooling is available, save evidence under `docs/demo/` using:
+
+- `docs/demo/01-dashboard-acoustic-alert.png`
+- `docs/demo/02-satellite-change-form.png`
+- `docs/demo/03-fused-alert-map.png`
+- `docs/demo/04-fused-alert-list.png`
+
+### Known limitations
+
+- Satellite-change events are manual/stubbed for the MVP.
+- The audio classifier is a deterministic placeholder based on file names.
+- Real Sentinel/NDVI processing is deferred.
+- Real ML classification is deferred.
+
+### Current validation status in this environment
+
+The Verified MVP Demo checklist was attempted on 2026-05-14, but this execution environment still blocked package installation and Docker startup. These commands succeeded:
+
+```bash
+git diff --check
+python -m compileall api/app api/tests
+python -m json.tool frontend/package.json >/tmp/package.json.valid
+```
+
+These commands were blocked by environment limitations, not by code changes:
+
+```bash
+cd api && python -m pip install -r requirements.txt -r requirements-dev.txt
+# Blocked while fetching fastapi==0.121.3: package index tunnel returned 403 Forbidden.
+
+cd api && pytest -q
+# Blocked because FastAPI was unavailable after dependency installation failed.
+
+cd frontend && npm install
+# Blocked while fetching @testing-library/jest-dom: npm registry returned 403 Forbidden.
+
+cd frontend && npm test
+# Blocked because vitest was unavailable after npm install failed.
+
+cd frontend && npm run build
+# Blocked because vite was unavailable after npm install failed.
+
+docker compose config
+# Blocked because docker was not installed in the environment.
+
+docker compose up --build
+# Blocked because docker was not installed in the environment.
+
+bash scripts/demo_mvp_flow.sh
+# Blocked because no API was running at http://localhost:8000 after dependency/Docker startup was blocked.
+```
+
+Expected successful smoke-script output in a fully provisioned environment includes these IDs and CSV path:
+
+```text
+Canopy MVP demo flow completed successfully.
+org_id=<created org id>
+region_id=<created region id>
+sensor_id=<created sensor id>
+acoustic_alert_id=<generated acoustic alert id>
+ndvi_batch_id=<created NDVI ingestion batch id>
+created_satellite_change_ids=<comma-separated generated satellite-change ids>
+satellite_change_id=<first generated satellite-change id>
+fused_alert_id=<created fused alert id>
+csv_path=demo-output/canopy-alerts-with-fusion.csv
+```
+
+## NDVI CSV sample ingestion MVP
+
+This is CSV/sample-based NDVI ingestion. Live Sentinel/Google Earth Engine integration is deferred. The goal is to bridge the manual satellite-change workflow with a more realistic geospatial product loop: admins can upload NDVI comparison rows for a region, and Canopy creates `satellite_change_events` automatically for vegetation-loss rows that can be fused with acoustic alerts.
+
+### CSV format
+
+Required columns:
+
+- `latitude`
+- `longitude`
+- `baseline_ndvi`
+- `recent_ndvi`
+
+Optional columns:
+
+- `region_id`
+- `baseline_start`
+- `baseline_end`
+- `observation_start`
+- `observation_end`
+- `description`
+- `confidence`
+
+A sample file is available at [`docs/sample-data/ndvi_sample.csv`](docs/sample-data/ndvi_sample.csv).
+
+For each row:
+
+```text
+ndvi_delta = recent_ndvi - baseline_ndvi
+severity_score = min(abs(ndvi_delta) / 0.5, 1.0)
+```
+
+Vegetation loss means `ndvi_delta < 0`. Rows are skipped unless `ndvi_delta <= loss_threshold`; the default loss threshold is `-0.15`. The generated satellite-change metadata includes `baseline_ndvi`, `recent_ndvi`, `ndvi_delta`, `loss_threshold`, `ingestion_batch_id`, and `row_number`.
+
+### Curl NDVI ingestion flow
+
+```bash
+# Upload sample NDVI CSV for an existing region
+curl -s -X POST http://localhost:8000/api/ndvi/upload-csv \
+  -H "Authorization: Bearer $TOKEN" \
+  -F "region_id=$REGION_ID" \
+  -F 'loss_threshold=-0.15' \
+  -F 'default_confidence=0.75' \
+  -F 'file=@docs/sample-data/ndvi_sample.csv;type=text/csv' \
+  | python -m json.tool
+
+# List ingestion batches
+curl -s -H "Authorization: Bearer $TOKEN" \
+  http://localhost:8000/api/ndvi/batches | python -m json.tool
+
+# List generated satellite changes
+curl -s -H "Authorization: Bearer $TOKEN" \
+  http://localhost:8000/api/satellite-changes | python -m json.tool
+
+# Run fusion after NDVI-generated changes exist
+curl -s -X POST http://localhost:8000/api/fusion/run \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"time_window_days":14,"distance_meters":500,"min_acoustic_confidence":0.65,"min_satellite_severity":0.3}' \
+  | python -m json.tool
+
+# List fused alerts
+curl -s -H "Authorization: Bearer $TOKEN" \
+  'http://localhost:8000/api/alerts?type=fusion' | python -m json.tool
+```
+
+The demo smoke script now uses the NDVI sample CSV by default:
+
+```bash
+scripts/demo_mvp_flow.sh
+```
