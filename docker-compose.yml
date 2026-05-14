@@ -1,0 +1,46 @@
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-canopy}
+      POSTGRES_USER: ${POSTGRES_USER:-canopy_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-canopy_password}
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - ./api/migrations:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-canopy_user} -d ${POSTGRES_DB:-canopy}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build: ./api
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://canopy_user:canopy_password@db:5432/canopy}
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
+      API_HOST: 0.0.0.0
+      API_PORT: 8000
+      AUDIO_STORAGE_PATH: /data/audio
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - audio_data:/data/audio
+
+  frontend:
+    build: ./frontend
+    environment:
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8000}
+    ports:
+      - "5173:5173"
+    depends_on:
+      - api
+
+volumes:
+  db_data:
+  audio_data:
