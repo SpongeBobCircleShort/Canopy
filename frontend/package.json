@@ -11,11 +11,12 @@
   },
   "dependencies": {
     "@vitejs/plugin-react": "latest",
-    "vite": "latest",
+    "leaflet": "latest",
     "react": "latest",
     "react-dom": "latest",
-    "leaflet": "latest",
-    "react-leaflet": "latest"
+    "react-leaflet": "latest",
+    "react-router-dom": "^7.15.1",
+    "vite": "latest"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "latest",
@@ -23,7 +24,7 @@
     "eslint": "latest",
     "eslint-plugin-react-hooks": "latest",
     "eslint-plugin-react-refresh": "latest",
-    "vitest": "latest",
-    "jsdom": "latest"
+    "jsdom": "latest",
+    "vitest": "latest"
   }
 }

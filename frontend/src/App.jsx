@@ -1,5 +1,12 @@
 import { useEffect, useState } from 'react'
-import Dashboard from './components/Dashboard.jsx'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+
+import Layout from './components/Layout.jsx'
+import LoginPage from './components/LoginPage.jsx'
+import Overview from './components/Overview.jsx'
+import DataIngestion from './components/DataIngestion.jsx'
+import Settings from './components/Settings.jsx'
+
 import {
   createInvite,
   createRegion,
@@ -70,9 +77,34 @@ export default function App() {
     setInvites(invitesResult)
   }
 
+  const [isSimulating, setIsSimulating] = useState(false)
+
   useEffect(() => {
     refreshData().catch((err) => setError(err.message))
   }, [])
+
+  useEffect(() => {
+    if (!isSimulating) return
+    const interval = setInterval(() => {
+      const isAcoustic = Math.random() > 0.4
+      const priorities = ['low', 'medium', 'high', 'critical']
+      const randomPriority = priorities[Math.floor(Math.random() * priorities.length)]
+      const newAlert = {
+        id: Date.now(),
+        type: isAcoustic ? 'audio' : 'fusion',
+        status: 'open',
+        priority: randomPriority,
+        description: isAcoustic 
+          ? `Audio classifier detected 'chainsaw' with ${Math.floor(Math.random() * 20 + 80)}% confidence.`
+          : `Fusion alert: acoustic evidence matched satellite change.`,
+        location: { lat: 21.0 + (Math.random() * 10 - 5), lon: 78.0 + (Math.random() * 10 - 5) },
+        created_at: new Date().toISOString(),
+        metadata: !isAcoustic ? { fusion_score: Math.random() * 0.5 + 0.5 } : undefined
+      }
+      setAlerts(prev => [newAlert, ...prev])
+    }, 2500)
+    return () => clearInterval(interval)
+  }, [isSimulating])
 
   function persistToken(nextToken) {
     setToken(nextToken)
@@ -100,83 +132,39 @@ export default function App() {
     setProfile(null)
     setInvites([])
     setFusionResult(null)
-    setMessage('Logged out. Please log in to view organization data.')
+    setMessage('Logged out.')
   }
 
-  async function handleCreateInvite(payload) {
+  // Handlers for Overview
+  async function handleUpdateAlertStatus(alertId, status) {
     setError('')
-    const invite = await createInvite(token, profile.org_id, payload)
-    setMessage(`Created invite for ${invite.email}. Token: ${invite.token}`)
+    await updateAlertStatus(token, alertId, { status })
     await refreshData()
   }
 
-  async function handleRevokeInvite(inviteId) {
-    setError('')
-    await revokeInvite(token, profile.org_id, inviteId)
-    setMessage(`Revoked invite ${inviteId}.`)
-    await refreshData()
-  }
-
-  async function handleCreateRegion(payload) {
-    setError('')
-    const region = await createRegion(token, payload)
-    setMessage(`Created region ${region.name}.`)
-    await refreshData()
-  }
-
-  async function handleCreateSensor(payload) {
-    setError('')
-    const sensor = await createSensor(token, payload)
-    setMessage(`Created sensor ${sensor.name}.`)
-    await refreshData()
-  }
-
+  // Handlers for Data Ingestion
   async function handleUploadClip(payload) {
     setError('')
-    const result = await uploadClip(token, payload)
-    setMessage(`Uploaded clip ${result.clip_id}; generated alert ${result.generated_alert?.id}.`)
+    await uploadClip(token, payload)
     await refreshData()
   }
-
-  async function handleCreateSatelliteChange(payload) {
-    setError('')
-    const change = await createSatelliteChange(token, payload)
-    setMessage(`Created satellite change ${change.id}.`)
-    await refreshData()
-  }
-
   async function handleUploadNdviCsv(payload) {
     setError('')
     const result = await uploadNdviCsv(token, payload)
     setNdviUploadResult(result)
-    setMessage(`Processed NDVI batch ${result.batch_id}: ${result.created_change_count} satellite change(s) created, ${result.skipped_count} row(s) skipped.`)
     await refreshData()
   }
-
+  async function handleCreateSatelliteChange(payload) {
+    setError('')
+    await createSatelliteChange(token, payload)
+    await refreshData()
+  }
   async function handleRunFusion() {
     setError('')
-    const result = await runFusion(token, {
-      time_window_days: 14,
-      distance_meters: 500,
-      min_acoustic_confidence: 0.65,
-      min_satellite_severity: 0.3,
-    })
+    const result = await runFusion(token, { time_window_days: 14, distance_meters: 500, min_acoustic_confidence: 0.65, min_satellite_severity: 0.3 })
     setFusionResult(result)
-    setMessage(
-      result.matched_count === 0
-        ? 'Fusion completed: no acoustic/satellite matches found.'
-        : `Fusion completed: ${result.created_count} alert(s) created from ${result.matched_count} match(es).`,
-    )
     await refreshData()
   }
-
-  async function handleUpdateAlertStatus(alertId, status) {
-    setError('')
-    await updateAlertStatus(token, alertId, { status })
-    setMessage(`Updated alert ${alertId} to ${status}.`)
-    await refreshData()
-  }
-
   async function handleExportAlerts() {
     const blob = await downloadAlertsCsv(token)
     const url = window.URL.createObjectURL(blob)
@@ -187,34 +175,59 @@ export default function App() {
     window.URL.revokeObjectURL(url)
   }
 
+  // Handlers for Settings
+  async function handleCreateInvite(payload) {
+    setError('')
+    await createInvite(token, profile.org_id, payload)
+    await refreshData()
+  }
+  async function handleRevokeInvite(inviteId) {
+    setError('')
+    await revokeInvite(token, profile.org_id, inviteId)
+    await refreshData()
+  }
+  async function handleCreateRegion(payload) {
+    setError('')
+    await createRegion(token, payload)
+    await refreshData()
+  }
+  async function handleCreateSensor(payload) {
+    setError('')
+    await createSensor(token, payload)
+    await refreshData()
+  }
+
+  const isAdmin = profile?.role === 'admin'
+
+  if (!isAuthenticated) {
+    return <LoginPage onAuth={handleAuth} error={error} message={message} />
+  }
+
   return (
-    <Dashboard
-      health={health}
-      alerts={alerts}
-      sensors={sensors}
-      regions={regions}
-      satelliteChanges={satelliteChanges}
-      fusionResult={fusionResult}
-      ndviBatches={ndviBatches}
-      ndviUploadResult={ndviUploadResult}
-      invites={invites}
-      profile={profile}
-      isAuthenticated={isAuthenticated}
-      message={message}
-      error={error}
-      token={token}
-      onAuth={handleAuth}
-      onLogout={handleLogout}
-      onExportAlerts={handleExportAlerts}
-      onCreateInvite={handleCreateInvite}
-      onRevokeInvite={handleRevokeInvite}
-      onCreateRegion={handleCreateRegion}
-      onCreateSensor={handleCreateSensor}
-      onUploadClip={handleUploadClip}
-      onCreateSatelliteChange={handleCreateSatelliteChange}
-      onRunFusion={handleRunFusion}
-      onUploadNdviCsv={handleUploadNdviCsv}
-      onUpdateAlertStatus={handleUpdateAlertStatus}
-    />
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<Layout profile={profile} onLogout={handleLogout} health={health} />}>
+          <Route index element={
+            <Overview alerts={alerts} sensors={sensors} satelliteChanges={satelliteChanges} onUpdateAlertStatus={handleUpdateAlertStatus} isAdmin={isAdmin} isSimulating={isSimulating} setIsSimulating={setIsSimulating} />
+          } />
+          <Route path="ingestion" element={
+            <DataIngestion 
+              sensors={sensors} regions={regions} ndviBatches={ndviBatches} satelliteChanges={satelliteChanges}
+              fusionResult={fusionResult} ndviUploadResult={ndviUploadResult} isAuthenticated={isAuthenticated} isAdmin={isAdmin}
+              onUploadClip={handleUploadClip} onUploadNdviCsv={handleUploadNdviCsv} onCreateSatelliteChange={handleCreateSatelliteChange}
+              onRunFusion={handleRunFusion} onExportAlerts={handleExportAlerts}
+            />
+          } />
+          <Route path="settings" element={
+            <Settings 
+              regions={regions} invites={invites} isAdmin={isAdmin}
+              onCreateInvite={handleCreateInvite} onRevokeInvite={handleRevokeInvite}
+              onCreateRegion={handleCreateRegion} onCreateSensor={handleCreateSensor}
+            />
+          } />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Route>
+      </Routes>
+    </BrowserRouter>
   )
 }

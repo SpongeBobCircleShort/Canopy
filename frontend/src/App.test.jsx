@@ -12,6 +12,9 @@ vi.mock('react-leaflet', () => ({
   TileLayer: () => <div />,
   CircleMarker: ({ children }) => <div>{children}</div>,
   Popup: ({ children }) => <div>{children}</div>,
+  useMapEvents: () => ({
+    getZoom: () => 6,
+  }),
 }))
 
 function jsonResponse(body, status = 200) {
@@ -40,24 +43,28 @@ beforeEach(() => {
 })
 
 describe('App', () => {
-  it('renders the Canopy dashboard and auth prompt', async () => {
+  it('renders the auth prompt when not logged in', async () => {
     render(<App />)
 
-    expect(screen.getByRole('heading', { name: /Canopy conservation dashboard/i })).toBeInTheDocument()
-    expect(screen.getByText(/Log in or sign up to load organization-scoped/i)).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: /Sign up or log in/i })).toBeInTheDocument()
-    expect(screen.getByTestId('map')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /CANOPY/i })).toBeInTheDocument()
+    expect(screen.getByText(/Open-source forest monitoring/i)).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /Authenticate/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Log in/i })).toBeInTheDocument()
   })
 
-  it('renders manual satellite-change form and admin fusion button', async () => {
+  it('renders dashboard overview and can navigate to ingestion', async () => {
     window.localStorage.setItem('canopy_token', 'demo-token')
     render(<App />)
 
-    expect(await screen.findByRole('heading', { name: /Manual satellite change/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Create satellite change/i })).toBeEnabled()
+    expect(await screen.findByRole('heading', { name: /Global Overview/i })).toBeInTheDocument()
+    expect(screen.getByTestId('map')).toBeInTheDocument()
+    
+    // Navigate to ingestion
+    const ingestionLink = screen.getByRole('link', { name: /Data Ingestion/i })
+    ingestionLink.click()
+    
+    expect(await screen.findByRole('heading', { name: /Data Ingestion & Fusion/i })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /Manual satellite change/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Run Fusion/i })).toBeEnabled()
-    expect(screen.getByRole('heading', { name: /Upload NDVI CSV/i })).toBeInTheDocument()
-    expect(screen.getByText(/CSV\/sample-based NDVI ingestion/i)).toBeInTheDocument()
-    expect(screen.getByText(/Real Sentinel\/NDVI processing is deferred/i)).toBeInTheDocument()
   })
 })
