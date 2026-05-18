@@ -95,4 +95,20 @@ describe('App', () => {
     fireEvent.click(screen.getByRole('button', { name: /Stop Simulation/i }))
     expect(await screen.findByRole('button', { name: /Simulate Live Data/i })).toBeInTheDocument()
   })
+
+  it('opens and closes the responsive navigation menu', async () => {
+    window.localStorage.setItem('canopy_token', 'demo-token')
+    render(<App />)
+
+    await screen.findByRole('heading', { name: /Global Overview/i })
+
+    const openMenuButton = screen.getByRole('button', { name: /Open navigation menu/i })
+    expect(openMenuButton).toHaveAttribute('aria-expanded', 'false')
+
+    fireEvent.click(openMenuButton)
+    expect(screen.getByRole('button', { name: /Close navigation menu/i, expanded: true })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('link', { name: /Data Ingestion/i }))
+    expect(await screen.findByRole('button', { name: /Open navigation menu/i })).toHaveAttribute('aria-expanded', 'false')
+  })
 })
