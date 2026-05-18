@@ -6,10 +6,6 @@ function regionName(regions, regionId) {
   return regions.find((r) => r.id === regionId)?.name || (regionId ? `region ${regionId}` : 'No region')
 }
 
-function formatPercent(value) {
-  return value === undefined || value === null ? 'n/a' : `${Math.round(Number(value) * 100)}%`
-}
-
 export default function DataIngestion({
   sensors,
   regions,

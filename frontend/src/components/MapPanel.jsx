@@ -1,18 +1,23 @@
-import { CircleMarker, MapContainer, Popup, TileLayer, useMapEvents } from 'react-leaflet'
 import { useState } from 'react'
+import { CircleMarker, MapContainer, Popup, TileLayer, useMapEvents } from 'react-leaflet'
 
 function alertStyle(alert, scale) {
   const base = { color: '#111111', weight: Math.max(1, 4 * scale), fillOpacity: 1 }
+
+  if (alert.metadata?.fusion_score !== undefined || alert.type === 'fusion' || alert.type === 'fused_logging_risk') {
+    return { ...base, fillColor: '#8b5cf6' }
+  }
+
   switch (alert.priority) {
     case 'critical':
-      return { ...base, fillColor: '#d32f2f' } // Muted Crimson
+      return { ...base, fillColor: '#d32f2f' }
     case 'high':
-      return { ...base, fillColor: '#d98218' } // Ochre / Burnt Orange
+      return { ...base, fillColor: '#d98218' }
     case 'medium':
-      return { ...base, fillColor: '#85b91b' } // Apple Green
+      return { ...base, fillColor: '#85b91b' }
     case 'low':
     default:
-      return { ...base, fillColor: '#267bc4' } // Steel Blue
+      return { ...base, fillColor: '#267bc4' }
   }
 }
 
@@ -20,12 +25,10 @@ function DynamicMarkers({ alerts, sensors, satelliteChanges }) {
   const map = useMapEvents({
     zoom() {
       setZoom(map.getZoom())
-    }
+    },
   })
   const [zoom, setZoom] = useState(map.getZoom())
-
-  // Scale factor: 1.0 at zoom 6. Shrinks down to 0.2 when zoomed out, grows up to 2.0 when zoomed in.
-  const scale = Math.min(2.0, Math.max(0.15, zoom / 6))
+  const scale = Math.min(2, Math.max(0.15, zoom / 6))
 
   return (
     <>
@@ -55,7 +58,7 @@ function DynamicMarkers({ alerts, sensors, satelliteChanges }) {
             <Popup>
               <strong>Satellite change #{change.id}</strong>
               <br />
-              {change.change_type} · severity {Math.round(change.severity_score * 100)}%
+              {change.change_type} severity {Math.round(change.severity_score * 100)}%
               {change.description && (
                 <>
                   <br />
@@ -91,7 +94,7 @@ function DynamicMarkers({ alerts, sensors, satelliteChanges }) {
 
 export default function MapPanel({ alerts, sensors, satelliteChanges = [] }) {
   const firstSatellitePoint = satelliteChanges.find((change) => change.latitude !== null && change.longitude !== null)
-  const center = alerts[0]?.location ?? sensors[0]?.location ?? (firstSatellitePoint ? { lat: firstSatellitePoint.latitude, lon: firstSatellitePoint.longitude } : { lat: 21.0, lon: 78.0 })
+  const center = alerts[0]?.location ?? sensors[0]?.location ?? (firstSatellitePoint ? { lat: firstSatellitePoint.latitude, lon: firstSatellitePoint.longitude } : { lat: 21, lon: 78 })
 
   return (
     <section className="map-panel" aria-label="Canopy map">

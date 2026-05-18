@@ -19,6 +19,7 @@
     "vite": "latest"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@testing-library/jest-dom": "latest",
     "@testing-library/react": "latest",
     "eslint": "latest",

@@ -1,11 +1,11 @@
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App.jsx'
 
 afterEach(() => {
   cleanup()
+  vi.unstubAllGlobals()
 })
-
 
 vi.mock('react-leaflet', () => ({
   MapContainer: ({ children }) => <div data-testid="map">{children}</div>,
@@ -22,6 +22,7 @@ function jsonResponse(body, status = 200) {
 }
 
 beforeEach(() => {
+  window.history.pushState({}, 'Test page', '/')
   window.localStorage.clear()
   vi.stubGlobal(
     'fetch',
@@ -58,13 +59,40 @@ describe('App', () => {
 
     expect(await screen.findByRole('heading', { name: /Global Overview/i })).toBeInTheDocument()
     expect(screen.getByTestId('map')).toBeInTheDocument()
-    
-    // Navigate to ingestion
-    const ingestionLink = screen.getByRole('link', { name: /Data Ingestion/i })
-    ingestionLink.click()
-    
+
+    fireEvent.click(screen.getByRole('link', { name: /Data Ingestion/i }))
+
     expect(await screen.findByRole('heading', { name: /Data Ingestion & Fusion/i })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: /Manual satellite change/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Run Fusion/i })).toBeEnabled()
+    expect(screen.getByRole('heading', { name: /Upload NDVI CSV/i })).toBeInTheDocument()
+    expect(screen.getByText(/Run 14-day\/500m rule/i)).toBeInTheDocument()
+  })
+
+  it('can navigate to settings page', async () => {
+    window.localStorage.setItem('canopy_token', 'demo-token')
+    render(<App />)
+
+    expect(await screen.findByRole('heading', { name: /Global Overview/i })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('link', { name: /Configuration/i }))
+
+    expect(await screen.findByRole('heading', { name: /Configuration & Settings/i })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /Create sensor/i })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /Create region/i })).toBeInTheDocument()
+  })
+
+  it('toggles live simulation state', async () => {
+    window.localStorage.setItem('canopy_token', 'demo-token')
+    render(<App />)
+
+    const simulateButton = await screen.findByRole('button', { name: /Simulate Live Data/i })
+    expect(simulateButton).toBeInTheDocument()
+
+    fireEvent.click(simulateButton)
+    expect(await screen.findByRole('button', { name: /Stop Simulation/i })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /Stop Simulation/i }))
+    expect(await screen.findByRole('button', { name: /Simulate Live Data/i })).toBeInTheDocument()
   })
 })

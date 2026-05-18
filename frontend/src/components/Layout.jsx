@@ -1,6 +1,6 @@
 import { Link, Outlet, useLocation } from 'react-router-dom'
 
-export default function Layout({ profile, onLogout, health }) {
+export default function Layout({ profile, onLogout, health, message, error }) {
   const location = useLocation()
   
   return (
@@ -29,6 +29,7 @@ export default function Layout({ profile, onLogout, health }) {
       </aside>
       
       <main className="layout-content">
+        {(message || error) && <p className="status-message">{error || message}</p>}
         <Outlet />
       </main>
     </div>
