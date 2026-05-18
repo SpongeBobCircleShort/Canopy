@@ -1,0 +1,93 @@
+# Canopy Audio Threat Research
+
+This directory contains the Phase 3A research prototype for a custom acoustic threat classifier. It is intentionally separate from the FastAPI runtime: `/api/clips/upload` still uses the existing placeholder classifier until a later integration step.
+
+## Labels
+
+The first model targets five operational classes:
+
+- `chainsaw`
+- `gunshot`
+- `vehicle`
+- `fire_crackle`
+- `background_unknown`
+
+## Setup
+
+```bash
+python3 -m venv .venv-audio
+source .venv-audio/bin/activate
+pip install -r research/audio/requirements-audio.txt
+```
+
+Training is intended for local macOS arm64 CPU/MPS or a separate GPU machine. The normal API and frontend dependencies do not install these ML packages.
+
+## Build a Manifest
+
+Audio data must stay outside git. Put public datasets under a local path such as `data/audio/raw/` or pass explicit dataset roots:
+
+```bash
+python -m research.audio.prepare_manifest \
+  --esc50-root data/audio/raw/ESC-50 \
+  --urbansound8k-root data/audio/raw/UrbanSound8K \
+  --canopy-root data/audio/raw/canopy-labeled \
+  --output data/audio/manifests/threat_manifest.csv
+```
+
+Manifest columns are:
+
+```text
+path,label,source,split,duration_seconds,license,notes
+```
+
+Supported sources are free text, with current builders emitting `esc50`, `urbansound8k`, and `canopy`.
+
+## Train
+
+```bash
+python -m research.audio.train \
+  --manifest data/audio/manifests/threat_manifest.csv \
+  --config research/audio/config.yaml \
+  --artifact-dir models/audio/threat_cnn_v0
+```
+
+Artifacts:
+
+- `model.pt`
+- `labels.json`
+- `metrics.json`
+- `config.yaml`
+
+## Evaluate
+
+```bash
+python -m research.audio.evaluate \
+  --model models/audio/threat_cnn_v0 \
+  --manifest data/audio/manifests/threat_manifest.csv \
+  --split test
+```
+
+## Offline Inference
+
+```bash
+python -m research.audio.infer \
+  --model models/audio/threat_cnn_v0 \
+  --audio /path/to/audio.wav
+```
+
+The CLI prints JSON compatible with the future Canopy classifier service boundary:
+
+```json
+{
+  "label": "chainsaw",
+  "confidence": 0.91,
+  "model_version": "threat-cnn-v0",
+  "scores": {
+    "chainsaw": 0.91,
+    "gunshot": 0.02,
+    "vehicle": 0.04,
+    "fire_crackle": 0.01,
+    "background_unknown": 0.02
+  }
+}
+```

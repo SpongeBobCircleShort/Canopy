@@ -1,0 +1,20 @@
+model_version: threat-cnn-v0
+labels:
+  - chainsaw
+  - gunshot
+  - vehicle
+  - fire_crackle
+  - background_unknown
+audio:
+  sample_rate: 16000
+  clip_seconds: 4.0
+  n_mels: 64
+training:
+  batch_size: 16
+  epochs: 12
+  learning_rate: 0.001
+  seed: 42
+  device: auto
+paths:
+  manifest: data/audio/manifests/threat_manifest.csv
+  artifact_dir: models/audio/threat_cnn_v0
