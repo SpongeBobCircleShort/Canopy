@@ -14,3 +14,10 @@ coverage/
 .DS_Store
 /data/
 *.log
+
+# Dev databases and artifacts
+api/canopy-dev.db
+api/test-canopy.db
+api/test-audio/
+demo-output/
+test-output.txt

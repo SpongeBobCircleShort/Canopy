@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import Dashboard from './components/Dashboard.jsx'
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+
 import {
   createInvite,
   createRegion,
@@ -22,6 +23,11 @@ import {
   uploadClip,
   uploadNdviCsv,
 } from './api.js'
+import DataIngestion from './components/DataIngestion.jsx'
+import Layout from './components/Layout.jsx'
+import LoginPage from './components/LoginPage.jsx'
+import Overview from './components/Overview.jsx'
+import Settings from './components/Settings.jsx'
 
 export default function App() {
   const [health, setHealth] = useState({ status: 'loading' })
@@ -37,11 +43,15 @@ export default function App() {
   const [token, setToken] = useState(() => window.localStorage.getItem('canopy_token') || '')
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
+  const [isSimulating, setIsSimulating] = useState(false)
+
   const isAuthenticated = Boolean(token)
+  const isAdmin = profile?.role === 'admin'
 
   async function refreshData(nextToken = token) {
     const healthResult = await fetchHealth()
     setHealth(healthResult)
+
     if (!nextToken) {
       setAlerts([])
       setSensors([])
@@ -52,6 +62,7 @@ export default function App() {
       setNdviBatches([])
       return
     }
+
     const profileResult = await fetchMe(nextToken)
     const [alertsResult, sensorsResult, regionsResult, satelliteChangesResult, ndviBatchesResult, invitesResult] = await Promise.all([
       fetchAlerts(nextToken),
@@ -61,6 +72,7 @@ export default function App() {
       fetchNdviBatches(nextToken),
       profileResult.role === 'admin' && profileResult.org_id ? fetchInvites(nextToken, profileResult.org_id) : Promise.resolve([]),
     ])
+
     setProfile(profileResult)
     setAlerts(alertsResult)
     setSensors(sensorsResult)
@@ -72,7 +84,34 @@ export default function App() {
 
   useEffect(() => {
     refreshData().catch((err) => setError(err.message))
+    // Startup load only; later authenticated mutations call refreshData directly.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  useEffect(() => {
+    if (!isSimulating) return undefined
+
+    const interval = setInterval(() => {
+      const isAcoustic = Math.random() > 0.4
+      const priorities = ['low', 'medium', 'high', 'critical']
+      const randomPriority = priorities[Math.floor(Math.random() * priorities.length)]
+      const newAlert = {
+        id: Date.now(),
+        type: isAcoustic ? 'audio' : 'fusion',
+        status: 'open',
+        priority: randomPriority,
+        description: isAcoustic
+          ? `Audio classifier detected chainsaw with ${Math.floor(Math.random() * 20 + 80)}% confidence.`
+          : 'Fusion alert: acoustic evidence matched satellite change.',
+        location: { lat: 21.0 + (Math.random() * 10 - 5), lon: 78.0 + (Math.random() * 10 - 5) },
+        created_at: new Date().toISOString(),
+        metadata: isAcoustic ? undefined : { fusion_score: Math.random() * 0.5 + 0.5 },
+      }
+      setAlerts((previousAlerts) => [newAlert, ...previousAlerts])
+    }, 2500)
+
+    return () => clearInterval(interval)
+  }, [isSimulating])
 
   function persistToken(nextToken) {
     setToken(nextToken)
@@ -100,6 +139,7 @@ export default function App() {
     setProfile(null)
     setInvites([])
     setFusionResult(null)
+    setIsSimulating(false)
     setMessage('Logged out. Please log in to view organization data.')
   }
 
@@ -187,34 +227,65 @@ export default function App() {
     window.URL.revokeObjectURL(url)
   }
 
+  if (!isAuthenticated) {
+    return <LoginPage onAuth={handleAuth} error={error} message={message} />
+  }
+
   return (
-    <Dashboard
-      health={health}
-      alerts={alerts}
-      sensors={sensors}
-      regions={regions}
-      satelliteChanges={satelliteChanges}
-      fusionResult={fusionResult}
-      ndviBatches={ndviBatches}
-      ndviUploadResult={ndviUploadResult}
-      invites={invites}
-      profile={profile}
-      isAuthenticated={isAuthenticated}
-      message={message}
-      error={error}
-      token={token}
-      onAuth={handleAuth}
-      onLogout={handleLogout}
-      onExportAlerts={handleExportAlerts}
-      onCreateInvite={handleCreateInvite}
-      onRevokeInvite={handleRevokeInvite}
-      onCreateRegion={handleCreateRegion}
-      onCreateSensor={handleCreateSensor}
-      onUploadClip={handleUploadClip}
-      onCreateSatelliteChange={handleCreateSatelliteChange}
-      onRunFusion={handleRunFusion}
-      onUploadNdviCsv={handleUploadNdviCsv}
-      onUpdateAlertStatus={handleUpdateAlertStatus}
-    />
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<Layout profile={profile} onLogout={handleLogout} health={health} message={message} error={error} />}>
+          <Route
+            index
+            element={
+              <Overview
+                alerts={alerts}
+                sensors={sensors}
+                satelliteChanges={satelliteChanges}
+                onUpdateAlertStatus={handleUpdateAlertStatus}
+                isAdmin={isAdmin}
+                isSimulating={isSimulating}
+                setIsSimulating={setIsSimulating}
+              />
+            }
+          />
+          <Route
+            path="ingestion"
+            element={
+              <DataIngestion
+                sensors={sensors}
+                regions={regions}
+                ndviBatches={ndviBatches}
+                satelliteChanges={satelliteChanges}
+                fusionResult={fusionResult}
+                ndviUploadResult={ndviUploadResult}
+                isAuthenticated={isAuthenticated}
+                isAdmin={isAdmin}
+                onUploadClip={handleUploadClip}
+                onUploadNdviCsv={handleUploadNdviCsv}
+                onCreateSatelliteChange={handleCreateSatelliteChange}
+                onRunFusion={handleRunFusion}
+                onExportAlerts={handleExportAlerts}
+              />
+            }
+          />
+          <Route
+            path="settings"
+            element={
+              <Settings
+                regions={regions}
+                invites={invites}
+                isAdmin={isAdmin}
+                onCreateInvite={handleCreateInvite}
+                onRevokeInvite={handleRevokeInvite}
+                onCreateRegion={handleCreateRegion}
+                onCreateSensor={handleCreateSensor}
+              />
+            }
+          />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Route>
+      </Routes>
+    </BrowserRouter>
   )
 }

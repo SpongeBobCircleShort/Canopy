@@ -1,16 +1,100 @@
-import { CircleMarker, MapContainer, Popup, TileLayer } from 'react-leaflet'
+import { useState } from 'react'
+import { CircleMarker, MapContainer, Popup, TileLayer, useMapEvents } from 'react-leaflet'
 
-function alertStyle(alert) {
+function alertStyle(alert, scale) {
+  const base = { color: '#111111', weight: Math.max(1, 4 * scale), fillOpacity: 1 }
+
   if (alert.metadata?.fusion_score !== undefined || alert.type === 'fusion' || alert.type === 'fused_logging_risk') {
-    return { color: '#6d28d9', fillColor: '#8b5cf6', fillOpacity: 0.9 }
+    return { ...base, fillColor: '#8b5cf6' }
   }
-  if (alert.type === 'audio') return { color: '#b45309', fillColor: '#f59e0b', fillOpacity: 0.8 }
-  return { color: '#b91c1c', fillColor: '#ef4444', fillOpacity: 0.8 }
+
+  switch (alert.priority) {
+    case 'critical':
+      return { ...base, fillColor: '#d32f2f' }
+    case 'high':
+      return { ...base, fillColor: '#d98218' }
+    case 'medium':
+      return { ...base, fillColor: '#85b91b' }
+    case 'low':
+    default:
+      return { ...base, fillColor: '#267bc4' }
+  }
+}
+
+function DynamicMarkers({ alerts, sensors, satelliteChanges }) {
+  const map = useMapEvents({
+    zoom() {
+      setZoom(map.getZoom())
+    },
+  })
+  const [zoom, setZoom] = useState(map.getZoom())
+  const scale = Math.min(2, Math.max(0.15, zoom / 6))
+
+  return (
+    <>
+      {sensors.map((sensor) => (
+        <CircleMarker
+          key={`sensor-${sensor.id}`}
+          center={[sensor.location.lat, sensor.location.lon]}
+          pathOptions={{ color: '#111111', weight: Math.max(1, 3 * scale), fillColor: '#62d2c1', fillOpacity: 1 }}
+          radius={Math.max(2, 8 * scale)}
+        >
+          <Popup>
+            <strong>{sensor.name}</strong>
+            <br />
+            Sensor status: {sensor.status}
+          </Popup>
+        </CircleMarker>
+      ))}
+      {satelliteChanges
+        .filter((change) => change.latitude !== null && change.longitude !== null)
+        .map((change) => (
+          <CircleMarker
+            key={`satellite-change-${change.id}`}
+            center={[change.latitude, change.longitude]}
+            pathOptions={{ color: '#111111', weight: Math.max(1, 3 * scale), fillColor: '#d4ff00', fillOpacity: 1 }}
+            radius={Math.max(2.5, 10 * scale)}
+          >
+            <Popup>
+              <strong>Satellite change #{change.id}</strong>
+              <br />
+              {change.change_type} severity {Math.round(change.severity_score * 100)}%
+              {change.description && (
+                <>
+                  <br />
+                  {change.description}
+                </>
+              )}
+            </Popup>
+          </CircleMarker>
+        ))}
+      {alerts.map((alert) => (
+        <CircleMarker
+          key={`alert-${alert.id}`}
+          center={[alert.location.lat, alert.location.lon]}
+          pathOptions={alertStyle(alert, scale)}
+          radius={alert.metadata?.fusion_score !== undefined ? Math.max(3, 14 * scale) : Math.max(2.5, 11 * scale)}
+        >
+          <Popup>
+            <strong>{alert.metadata?.fusion_score !== undefined ? 'Fused' : alert.type} alert</strong>
+            <br />
+            {alert.description}
+            {alert.metadata?.fusion_score !== undefined && (
+              <>
+                <br />
+                Fusion score: {Number(alert.metadata.fusion_score).toFixed(4)}
+              </>
+            )}
+          </Popup>
+        </CircleMarker>
+      ))}
+    </>
+  )
 }
 
 export default function MapPanel({ alerts, sensors, satelliteChanges = [] }) {
   const firstSatellitePoint = satelliteChanges.find((change) => change.latitude !== null && change.longitude !== null)
-  const center = alerts[0]?.location ?? sensors[0]?.location ?? (firstSatellitePoint ? { lat: firstSatellitePoint.latitude, lon: firstSatellitePoint.longitude } : { lat: 0, lon: 0 })
+  const center = alerts[0]?.location ?? sensors[0]?.location ?? (firstSatellitePoint ? { lat: firstSatellitePoint.latitude, lon: firstSatellitePoint.longitude } : { lat: 21, lon: 78 })
 
   return (
     <section className="map-panel" aria-label="Canopy map">
@@ -19,62 +103,7 @@ export default function MapPanel({ alerts, sensors, satelliteChanges = [] }) {
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
-        {sensors.map((sensor) => (
-          <CircleMarker
-            key={`sensor-${sensor.id}`}
-            center={[sensor.location.lat, sensor.location.lon]}
-            pathOptions={{ color: '#0f766e', fillColor: '#14b8a6', fillOpacity: 0.8 }}
-            radius={8}
-          >
-            <Popup>
-              <strong>{sensor.name}</strong>
-              <br />
-              Sensor status: {sensor.status}
-            </Popup>
-          </CircleMarker>
-        ))}
-        {satelliteChanges
-          .filter((change) => change.latitude !== null && change.longitude !== null)
-          .map((change) => (
-            <CircleMarker
-              key={`satellite-change-${change.id}`}
-              center={[change.latitude, change.longitude]}
-              pathOptions={{ color: '#1d4ed8', fillColor: '#60a5fa', fillOpacity: 0.75 }}
-              radius={10}
-            >
-              <Popup>
-                <strong>Satellite change #{change.id}</strong>
-                <br />
-                {change.change_type} · severity {Math.round(change.severity_score * 100)}%
-                {change.description && (
-                  <>
-                    <br />
-                    {change.description}
-                  </>
-                )}
-              </Popup>
-            </CircleMarker>
-          ))}
-        {alerts.map((alert) => (
-          <CircleMarker
-            key={`alert-${alert.id}`}
-            center={[alert.location.lat, alert.location.lon]}
-            pathOptions={alertStyle(alert)}
-            radius={alert.metadata?.fusion_score !== undefined ? 14 : 11}
-          >
-            <Popup>
-              <strong>{alert.metadata?.fusion_score !== undefined ? 'Fused' : alert.type} alert</strong>
-              <br />
-              {alert.description}
-              {alert.metadata?.fusion_score !== undefined && (
-                <>
-                  <br />
-                  Fusion score: {Number(alert.metadata.fusion_score).toFixed(4)}
-                </>
-              )}
-            </Popup>
-          </CircleMarker>
-        ))}
+        <DynamicMarkers alerts={alerts} sensors={sensors} satelliteChanges={satelliteChanges} />
       </MapContainer>
     </section>
   )

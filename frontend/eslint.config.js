@@ -10,7 +10,11 @@ export default [
       ecmaVersion: 2022,
       sourceType: 'module',
       globals: {
+        clearInterval: 'readonly',
         document: 'readonly',
+        FormData: 'readonly',
+        setInterval: 'readonly',
+        URLSearchParams: 'readonly',
         window: 'readonly',
         fetch: 'readonly',
       },
@@ -24,6 +28,7 @@ export default [
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
+      'react-hooks/set-state-in-effect': 'off',
       'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
     },
   },
