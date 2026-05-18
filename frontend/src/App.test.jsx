@@ -1,6 +1,20 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App.jsx'
+import ToastStack from './components/ToastStack.jsx'
+
+const { apiData, mockMap } = vi.hoisted(() => ({
+  apiData: {
+    alerts: [],
+    sensors: [],
+    satelliteChanges: [],
+  },
+  mockMap: {
+    fitBounds: vi.fn(),
+    getZoom: vi.fn(() => 6),
+    setView: vi.fn(),
+  },
+}))
 
 afterEach(() => {
   cleanup()
@@ -12,9 +26,8 @@ vi.mock('react-leaflet', () => ({
   TileLayer: () => <div />,
   CircleMarker: ({ children }) => <div>{children}</div>,
   Popup: ({ children }) => <div>{children}</div>,
-  useMapEvents: () => ({
-    getZoom: () => 6,
-  }),
+  useMap: () => mockMap,
+  useMapEvents: () => mockMap,
 }))
 
 function jsonResponse(body, status = 200) {
@@ -24,6 +37,12 @@ function jsonResponse(body, status = 200) {
 beforeEach(() => {
   window.history.pushState({}, 'Test page', '/')
   window.localStorage.clear()
+  apiData.alerts = []
+  apiData.sensors = []
+  apiData.satelliteChanges = []
+  mockMap.fitBounds.mockClear()
+  mockMap.getZoom.mockClear()
+  mockMap.setView.mockClear()
   vi.stubGlobal(
     'fetch',
     vi.fn((url) => {
@@ -33,11 +52,11 @@ beforeEach(() => {
         return jsonResponse({ id: 1, name: 'Admin', email: 'admin@example.org', role: 'admin', org_id: 1, organization: { id: 1, name: 'Demo Org' } })
       }
       if (path.endsWith('/api/regions')) return jsonResponse([{ id: 10, name: 'North Sector' }])
-      if (path.endsWith('/api/sensors')) return jsonResponse([])
-      if (path.endsWith('/api/satellite-changes')) return jsonResponse([])
+      if (path.endsWith('/api/sensors')) return jsonResponse(apiData.sensors)
+      if (path.endsWith('/api/satellite-changes')) return jsonResponse(apiData.satelliteChanges)
       if (path.endsWith('/api/ndvi/batches')) return jsonResponse([])
       if (path.includes('/api/organizations/1/invites')) return jsonResponse([])
-      if (path.endsWith('/api/alerts')) return jsonResponse([])
+      if (path.endsWith('/api/alerts')) return jsonResponse(apiData.alerts)
       return jsonResponse([])
     }),
   )
@@ -110,5 +129,32 @@ describe('App', () => {
 
     fireEvent.click(screen.getByRole('link', { name: /Data Ingestion/i }))
     expect(await screen.findByRole('button', { name: /Open navigation menu/i })).toHaveAttribute('aria-expanded', 'false')
+  })
+
+  it('auto-fits the map to available markers', async () => {
+    window.localStorage.setItem('canopy_token', 'demo-token')
+    apiData.sensors = [{ id: 1, name: 'North Sensor', status: 'active', location: { lat: 21.1, lon: 78.2 } }]
+    apiData.alerts = [{ id: 2, type: 'audio', status: 'open', priority: 'high', description: 'Audio alert', location: { lat: 22.3, lon: 79.4 } }]
+
+    render(<App />)
+
+    await screen.findByRole('heading', { name: /Global Overview/i })
+    await waitFor(() => {
+      expect(mockMap.fitBounds).toHaveBeenCalledWith(
+        [
+          [22.3, 79.4],
+          [21.1, 78.2],
+        ],
+        { animate: true, maxZoom: 10, padding: [48, 48] },
+      )
+    })
+  })
+
+  it('renders dismissible toast notifications', () => {
+    render(<ToastStack toasts={[{ id: 'demo-error', type: 'error', message: 'Something failed' }]} />)
+
+    expect(screen.getByText(/Something failed/i)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /Dismiss error notification/i }))
+    expect(screen.queryByText(/Something failed/i)).not.toBeInTheDocument()
   })
 })

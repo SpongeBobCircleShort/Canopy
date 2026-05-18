@@ -1,5 +1,7 @@
 import { useState } from 'react'
 
+import ToastStack from './ToastStack.jsx'
+
 export default function Settings({
   regions,
   invites,
@@ -26,7 +28,7 @@ export default function Settings({
         <h2>Configuration & Settings</h2>
       </header>
       
-      {localError && <p className="status-message">{localError}</p>}
+      <ToastStack toasts={localError ? [{ id: `settings-error-${localError}`, type: 'error', message: localError }] : []} />
 
       <section className="workflow-grid">
         <form className="control-card" onSubmit={(e) => { e.preventDefault(); submitWithLocalError(() => onCreateInvite(inviteForm)); }}>

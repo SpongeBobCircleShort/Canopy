@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { Link, Outlet, useLocation } from 'react-router-dom'
 
+import ToastStack from './ToastStack.jsx'
+
 export default function Layout({ profile, onLogout, health, message, error }) {
   const location = useLocation()
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
@@ -48,7 +50,12 @@ export default function Layout({ profile, onLogout, health, message, error }) {
       </aside>
       
       <main className="layout-content">
-        {(message || error) && <p className="status-message">{error || message}</p>}
+        <ToastStack
+          toasts={[
+            error ? { id: `layout-error-${error}`, type: 'error', message: error } : null,
+            message ? { id: `layout-message-${message}`, type: 'success', message } : null,
+          ].filter(Boolean)}
+        />
         <Outlet />
       </main>
     </div>
