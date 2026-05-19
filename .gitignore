@@ -14,6 +14,9 @@ coverage/
 .DS_Store
 /data/
 *.log
+/models/audio/
+/research/audio/artifacts/
+/research/audio/runs/
 
 # Dev databases and artifacts
 api/canopy-dev.db
