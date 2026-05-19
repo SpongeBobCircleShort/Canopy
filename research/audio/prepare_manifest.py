@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import argparse
 import csv
+import random
+from dataclasses import replace
 from pathlib import Path
 
 from research.audio.labels import LABEL_ALIASES, canonical_label
@@ -18,12 +20,41 @@ ESC50_CLASS_MAP = {
     "train": "vehicle",
 }
 
+ESC50_BACKGROUND_CLASSES = {
+    "rain",
+    "sea_waves",
+    "crickets",
+    "chirping_birds",
+    "water_drops",
+    "wind",
+    "pouring_water",
+    "toilet_flush",
+    "thunderstorm",
+    "brushing_teeth",
+    "snoring",
+    "drinking_sipping",
+    "door_wood_knock",
+    "mouse_click",
+    "keyboard_typing",
+    "can_opening",
+    "washing_machine",
+    "vacuum_cleaner",
+}
+
 URBANSOUND8K_CLASS_MAP = {
     "gun_shot": "gunshot",
     "engine_idling": "vehicle",
     "car_horn": "vehicle",
     "siren": "vehicle",
-    "jackhammer": "chainsaw",
+}
+
+URBANSOUND8K_BACKGROUND_CLASSES = {
+    "air_conditioner",
+    "children_playing",
+    "dog_bark",
+    "drilling",
+    "jackhammer",
+    "street_music",
 }
 
 
@@ -37,7 +68,7 @@ def build_rows(esc50_root: Path | None, urbansound8k_root: Path | None, canopy_r
         rows.extend(_rows_from_canopy_tree(canopy_root))
     if not rows:
         raise ValueError("No dataset roots were provided or no supported labels were found")
-    return rows
+    return assign_balanced_splits(rows)
 
 
 def _rows_from_esc50(root: Path) -> list[ManifestRow]:
@@ -47,13 +78,16 @@ def _rows_from_esc50(root: Path) -> list[ManifestRow]:
     with meta_path.open(newline="") as handle:
         for record in csv.DictReader(handle):
             category = record["category"]
-            if category not in ESC50_CLASS_MAP:
+            label = ESC50_CLASS_MAP.get(category)
+            if label is None and category in ESC50_BACKGROUND_CLASSES:
+                label = "background_unknown"
+            if label is None:
                 continue
             fold = int(record["fold"])
             rows.append(
                 ManifestRow(
                     path=str((audio_dir / record["filename"]).resolve()),
-                    label=ESC50_CLASS_MAP[category],
+                    label=label,
                     source="esc50",
                     split=_fold_to_split(fold),
                     duration_seconds=5.0,
@@ -71,13 +105,16 @@ def _rows_from_urbansound8k(root: Path) -> list[ManifestRow]:
     with meta_path.open(newline="") as handle:
         for record in csv.DictReader(handle):
             class_name = record["class"]
-            if class_name not in URBANSOUND8K_CLASS_MAP:
+            label = URBANSOUND8K_CLASS_MAP.get(class_name)
+            if label is None and class_name in URBANSOUND8K_BACKGROUND_CLASSES:
+                label = "background_unknown"
+            if label is None:
                 continue
             fold = int(record["fold"])
             rows.append(
                 ManifestRow(
                     path=str((audio_root / f"fold{fold}" / record["slice_file_name"]).resolve()),
-                    label=URBANSOUND8K_CLASS_MAP[class_name],
+                    label=label,
                     source="urbansound8k",
                     split=_fold_to_split(fold),
                     duration_seconds=None,
@@ -86,6 +123,37 @@ def _rows_from_urbansound8k(root: Path) -> list[ManifestRow]:
                 )
             )
     return rows
+
+
+def assign_balanced_splits(rows: list[ManifestRow], *, seed: int = 42, val_fraction: float = 0.15, test_fraction: float = 0.15) -> list[ManifestRow]:
+    grouped: dict[str, list[ManifestRow]] = {}
+    for row in rows:
+        grouped.setdefault(row.label, []).append(row)
+
+    rng = random.Random(seed)
+    balanced_rows: list[ManifestRow] = []
+    for label, label_rows in sorted(grouped.items()):
+        shuffled = list(label_rows)
+        rng.shuffle(shuffled)
+        count = len(shuffled)
+        if count >= 3:
+            test_count = max(1, round(count * test_fraction))
+            val_count = max(1, round(count * val_fraction))
+        elif count == 2:
+            test_count = 1
+            val_count = 0
+        else:
+            test_count = 0
+            val_count = 0
+        train_count = max(0, count - val_count - test_count)
+        split_plan = ["train"] * train_count + ["val"] * val_count + ["test"] * test_count
+        if len(split_plan) < count:
+            split_plan.extend(["train"] * (count - len(split_plan)))
+        balanced_rows.extend(
+            replace(row, split=split, notes=f"{row.notes}; stratified_split_seed={seed}".strip("; "))
+            for row, split in zip(shuffled, split_plan, strict=True)
+        )
+    return sorted(balanced_rows, key=lambda row: (row.source, row.label, row.path))
 
 
 def _rows_from_canopy_tree(root: Path) -> list[ManifestRow]:

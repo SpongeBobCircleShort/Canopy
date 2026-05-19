@@ -25,18 +25,19 @@ def evaluate_artifact(model_dir: Path, manifest: Path, split: str = "test") -> d
     model = build_model(len(LABELS))
     model.load_state_dict(checkpoint["state_dict"])
     metrics = evaluate_model(model, loader, torch.device("cpu"))
-    (model_dir / "metrics.json").write_text(json.dumps(metrics, indent=2))
+    (model_dir / f"{split}_metrics.json").write_text(json.dumps(metrics, indent=2))
     return metrics
 
 
 def evaluate_model(model, loader, device) -> dict:
     torch = _torch()
-    from sklearn.metrics import classification_report, confusion_matrix, f1_score
+    from sklearn.metrics import accuracy_score, classification_report, confusion_matrix, f1_score
 
     model.eval()
     predictions: list[int] = []
     targets: list[int] = []
     confidences: list[float] = []
+    score_rows: list[list[float]] = []
     with torch.no_grad():
         for features, labels in loader:
             logits = model(features.to(device))
@@ -45,21 +46,63 @@ def evaluate_model(model, loader, device) -> dict:
             predictions.extend(predicted.tolist())
             targets.extend(labels.tolist())
             confidences.extend(probabilities.max(dim=1).values.tolist())
+            score_rows.extend(probabilities.tolist())
 
+    matrix = confusion_matrix(targets, predictions, labels=list(range(len(LABELS))))
+    report = classification_report(
+        targets,
+        predictions,
+        labels=list(range(len(LABELS))),
+        target_names=LABELS,
+        output_dict=True,
+        zero_division=0,
+    )
     return {
+        "accuracy": accuracy_score(targets, predictions),
         "macro_f1": f1_score(targets, predictions, average="macro", zero_division=0),
-        "classification_report": classification_report(targets, predictions, labels=list(range(len(LABELS))), target_names=LABELS, output_dict=True, zero_division=0),
-        "confusion_matrix": confusion_matrix(targets, predictions, labels=list(range(len(LABELS)))).tolist(),
-        "threshold_recommendations": {
-            label: round(_mean_confidence_for_label(index, predictions, confidences), 4)
-            for index, label in enumerate(LABELS)
-        },
+        "classification_report": report,
+        "per_class_recall": {label: report[label]["recall"] for label in LABELS},
+        "confusion_matrix": matrix.tolist(),
+        "top_confusions": _top_confusions(matrix),
+        "threshold_recommendations": _threshold_recommendations(targets, score_rows),
     }
 
 
-def _mean_confidence_for_label(label_index: int, predictions: list[int], confidences: list[float]) -> float:
-    values = [confidence for prediction, confidence in zip(predictions, confidences, strict=True) if prediction == label_index]
-    return sum(values) / len(values) if values else 0.5
+def _top_confusions(matrix, limit: int = 10) -> list[dict]:
+    confusions = []
+    for actual_index, actual_label in enumerate(LABELS):
+        for predicted_index, predicted_label in enumerate(LABELS):
+            if actual_index == predicted_index:
+                continue
+            count = int(matrix[actual_index][predicted_index])
+            if count:
+                confusions.append({"actual": actual_label, "predicted": predicted_label, "count": count})
+    return sorted(confusions, key=lambda item: item["count"], reverse=True)[:limit]
+
+
+def _threshold_recommendations(targets: list[int], score_rows: list[list[float]]) -> dict:
+    recommendations = {}
+    for label_index, label in enumerate(LABELS):
+        best = {"threshold": 0.5, "precision": 0.0, "recall": 0.0, "f1": 0.0}
+        for threshold_step in range(5, 96, 5):
+            threshold = threshold_step / 100
+            true_positive = false_positive = false_negative = 0
+            for target, scores in zip(targets, score_rows, strict=True):
+                predicted_positive = scores[label_index] >= threshold
+                actual_positive = target == label_index
+                if predicted_positive and actual_positive:
+                    true_positive += 1
+                elif predicted_positive and not actual_positive:
+                    false_positive += 1
+                elif not predicted_positive and actual_positive:
+                    false_negative += 1
+            precision = true_positive / max(true_positive + false_positive, 1)
+            recall = true_positive / max(true_positive + false_negative, 1)
+            f1 = 2 * precision * recall / max(precision + recall, 1e-12)
+            if f1 > best["f1"]:
+                best = {"threshold": threshold, "precision": precision, "recall": recall, "f1": f1}
+        recommendations[label] = {key: round(value, 4) for key, value in best.items()}
+    return recommendations
 
 
 def _torch():

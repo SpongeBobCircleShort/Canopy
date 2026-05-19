@@ -67,6 +67,18 @@ training:
   learning_rate: 0.001
   seed: 7
   device: cpu
+  class_weighting: true
+  weighted_sampler: true
+  sampler_weight_power: 0.75
+  sampler_label_multipliers:
+    chainsaw: 2.0
+    gunshot: 2.0
+    vehicle: 1.0
+    fire_crackle: 2.0
+    background_unknown: 1.0
+  checkpoint_each_epoch: true
+augmentation:
+  enabled: false
 paths:
   manifest: unused.csv
   artifact_dir: unused
@@ -77,8 +89,13 @@ paths:
     result = infer(artifact_dir, tmp_path / "chainsaw-test.wav")
 
     assert (artifact_dir / "model.pt").exists()
+    assert (artifact_dir / "best_model.pt").exists()
     assert (artifact_dir / "labels.json").exists()
     assert (artifact_dir / "metrics.json").exists()
+    assert (artifact_dir / "val_metrics.json").exists()
+    assert (artifact_dir / "test_metrics.json").exists()
+    assert (artifact_dir / "history.json").exists()
+    assert (artifact_dir / "checkpoint_epoch_001.pt").exists()
     assert json.loads((artifact_dir / "labels.json").read_text()) == LABELS
     assert "macro_f1" in metrics
     assert result["label"] in LABELS

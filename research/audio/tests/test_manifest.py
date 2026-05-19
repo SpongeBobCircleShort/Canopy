@@ -4,6 +4,7 @@ import pytest
 
 from research.audio.labels import canonical_label
 from research.audio.manifest import ManifestRow, read_manifest, validate_manifest_rows, write_manifest
+from research.audio.prepare_manifest import assign_balanced_splits
 
 
 def test_label_aliases_map_to_canopy_taxonomy() -> None:
@@ -55,3 +56,18 @@ def test_manifest_rejects_bad_split() -> None:
             ],
             require_files=False,
         )
+
+
+def test_balanced_split_assigner_covers_each_label() -> None:
+    rows = []
+    for label in ["chainsaw", "gunshot", "vehicle", "fire_crackle", "background_unknown"]:
+        for index in range(10):
+            rows.append(ManifestRow(path=f"/tmp/{label}-{index}.wav", label=label, source="unit", split="train"))
+
+    split_rows = assign_balanced_splits(rows, seed=1, val_fraction=0.2, test_fraction=0.2)
+    observed = {(row.label, row.split) for row in split_rows}
+
+    for label in ["chainsaw", "gunshot", "vehicle", "fire_crackle", "background_unknown"]:
+        assert (label, "train") in observed
+        assert (label, "val") in observed
+        assert (label, "test") in observed

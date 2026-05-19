@@ -46,32 +46,41 @@ Supported sources are free text, with current builders emitting `esc50`, `urbans
 
 ```bash
 python -m research.audio.train \
-  --manifest data/audio/manifests/threat_manifest.csv \
+  --manifest data/audio/manifests/threat_manifest_v1.csv \
   --config research/audio/config.yaml \
-  --artifact-dir models/audio/threat_cnn_v0
+  --artifact-dir models/audio/threat_cnn_v1
 ```
+
+Training uses a weighted sampler by default so scarce classes are not drowned out by vehicle/background examples. The default uses label-specific multipliers so `chainsaw` and `fire_crackle` get support without forcing every class to appear equally often. Training prints one JSON progress object per epoch with validation accuracy, macro F1, and per-class recall, then writes the best validation checkpoint to `model.pt`.
 
 Artifacts:
 
 - `model.pt`
+- `best_model.pt`
 - `labels.json`
+- `val_metrics.json`
+- `test_metrics.json`
+- `history.json`
 - `metrics.json`
+- `checkpoint_epoch_*.pt`
 - `config.yaml`
 
 ## Evaluate
 
 ```bash
 python -m research.audio.evaluate \
-  --model models/audio/threat_cnn_v0 \
-  --manifest data/audio/manifests/threat_manifest.csv \
+  --model models/audio/threat_cnn_v1 \
+  --manifest data/audio/manifests/threat_manifest_v1.csv \
   --split test
 ```
+
+Evaluation writes `<split>_metrics.json` and includes macro F1, per-class recall, a confusion matrix, top off-diagonal confusions, and per-class threshold recommendations.
 
 ## Offline Inference
 
 ```bash
 python -m research.audio.infer \
-  --model models/audio/threat_cnn_v0 \
+  --model models/audio/threat_cnn_v1 \
   --audio /path/to/audio.wav
 ```
 
@@ -81,7 +90,7 @@ The CLI prints JSON compatible with the future Canopy classifier service boundar
 {
   "label": "chainsaw",
   "confidence": 0.91,
-  "model_version": "threat-cnn-v0",
+  "model_version": "threat-cnn-v1",
   "scores": {
     "chainsaw": 0.91,
     "gunshot": 0.02,
