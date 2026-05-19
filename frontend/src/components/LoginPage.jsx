@@ -1,5 +1,7 @@
 import { useState } from 'react'
 
+import ToastStack from './ToastStack.jsx'
+
 export default function LoginPage({ onAuth, error, message }) {
   const [authMode, setAuthMode] = useState('login')
   const [authForm, setAuthForm] = useState({ name: '', email: '', password: '', organization_name: '', invite_token: '' })
@@ -93,9 +95,13 @@ export default function LoginPage({ onAuth, error, message }) {
           </button>
         </form>
         
-        {(message || error || localError) && (
-          <p className="status-message">{localError || error || message}</p>
-        )}
+        <ToastStack
+          toasts={[
+            localError ? { id: `login-local-${localError}`, type: 'error', message: localError } : null,
+            error ? { id: `login-error-${error}`, type: 'error', message: error } : null,
+            message ? { id: `login-message-${message}`, type: 'success', message } : null,
+          ].filter(Boolean)}
+        />
       </div>
     </div>
   )

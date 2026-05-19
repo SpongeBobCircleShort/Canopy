@@ -464,15 +464,60 @@ button:disabled {
   text-decoration: none;
 }
 
-.status-message {
-  background: rgba(212, 255, 0, 0.05);
-  border: 1px solid rgba(212, 255, 0, 0.2);
-  color: var(--accent);
+.toast-stack {
+  display: grid;
+  gap: 12px;
+  max-width: min(420px, calc(100vw - 32px));
+  position: fixed;
+  right: 24px;
+  top: 24px;
+  z-index: 50;
+}
+
+.toast {
+  align-items: center;
+  background: #101010;
+  border: 1px solid rgba(212, 255, 0, 0.35);
+  border-left: 4px solid var(--accent);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: 14px 16px;
+}
+
+.toast.error {
+  border-color: rgba(255, 68, 68, 0.35);
+  border-left-color: #ff4444;
+}
+
+.toast.success {
+  border-color: rgba(98, 210, 193, 0.35);
+  border-left-color: #62d2c1;
+}
+
+.toast p {
+  color: var(--text-main);
   font-family: var(--font-mono);
-  font-size: 0.85rem;
-  margin-bottom: 24px;
-  padding: 16px;
-  border-radius: 2px;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.toast button {
+  background: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  height: 28px;
+  line-height: 1;
+  padding: 0;
+  width: 28px;
+}
+
+.toast button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-main);
 }
 
 .fused-alert-card {
@@ -582,6 +627,13 @@ button:disabled {
     margin-left: 0;
     padding: 84px 24px 24px;
     width: 100%;
+  }
+
+  .toast-stack {
+    left: 16px;
+    max-width: none;
+    right: 16px;
+    top: 72px;
   }
 
   .page-header {

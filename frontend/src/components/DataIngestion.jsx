@@ -1,5 +1,7 @@
 import { useState } from 'react'
 
+import ToastStack from './ToastStack.jsx'
+
 const CHANGE_TYPES = ['ndvi_drop', 'canopy_loss', 'vegetation_stress', 'burn_scar', 'unknown']
 
 function regionName(regions, regionId) {
@@ -46,7 +48,7 @@ export default function DataIngestion({
         </div>
       </header>
       
-      {localError && <p className="status-message">{localError}</p>}
+      <ToastStack toasts={localError ? [{ id: `ingestion-error-${localError}`, type: 'error', message: localError }] : []} />
 
       <section className="workflow-grid">
         <form className="control-card" onSubmit={(e) => { e.preventDefault(); submitWithLocalError(() => onUploadClip(clipForm)); }}>
