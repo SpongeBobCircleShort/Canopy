@@ -64,6 +64,18 @@ npm run dev
 
 The API uses PostgreSQL/PostGIS in Docker and can use SQLite for tests or lightweight local development by setting `DATABASE_URL=sqlite:///./canopy-dev.db`.
 
+### Optional local audio model backend
+
+The API defaults to the deterministic placeholder audio classifier. To test the Phase 3A research model locally, install the separate audio dependencies and point the API at an ignored model artifact directory:
+
+```bash
+pip install -r ../research/audio/requirements-audio.txt
+export AUDIO_CLASSIFIER_BACKEND=local_model
+export AUDIO_MODEL_DIR=../models/audio/threat_cnn_v1
+```
+
+`AUDIO_CLASSIFIER_BACKEND=placeholder` remains the default. The local backend loads `model.pt`, `labels.json`, and threshold recommendations from `test_metrics.json` or `metrics.json`; trained model files stay out of git under `models/audio/`.
+
 ## MVP local demo flow
 
 The MVP flow can run against Docker/PostGIS or against SQLite for lightweight development. For SQLite, start the API from `api/` with:
