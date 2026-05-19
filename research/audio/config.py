@@ -7,7 +7,7 @@ from typing import Any
 from research.audio.labels import LABELS
 
 DEFAULT_CONFIG: dict[str, Any] = {
-    "model_version": "threat-cnn-v1",
+    "model_version": "threat-cnn-v2",
     "labels": LABELS,
     "audio": {
         "sample_rate": 16000,
@@ -25,12 +25,30 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "sampler_weight_power": 0.75,
         "sampler_label_multipliers": {
             "chainsaw": 24.0,
-            "gunshot": 4.0,
+            "gunshot": 2.0,
             "vehicle": 1.0,
-            "fire_crackle": 18.0,
-            "background_unknown": 1.0,
+            "fire_crackle": 16.0,
+            "background_unknown": 1.5,
         },
         "checkpoint_each_epoch": True,
+    },
+    "evaluation": {
+        "threshold_step": 0.05,
+        "min_precision": {
+            "chainsaw": 0.55,
+            "gunshot": 0.8,
+            "vehicle": 0.75,
+            "fire_crackle": 0.6,
+            "background_unknown": 0.8,
+        },
+        "selection": {
+            "background_false_positive_penalty": 0.75,
+            "min_recall": {
+                "chainsaw": 0.6,
+                "gunshot": 0.8,
+                "vehicle": 0.7,
+            },
+        },
     },
     "augmentation": {
         "enabled": True,
@@ -43,7 +61,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
     },
     "paths": {
         "manifest": "data/audio/manifests/threat_manifest_v1.csv",
-        "artifact_dir": "models/audio/threat_cnn_v1",
+        "artifact_dir": "models/audio/threat_cnn_v2",
     },
 }
 

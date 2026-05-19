@@ -27,6 +27,7 @@ def train(manifest: Path, config_path: Path | None, artifact_dir: Path | None = 
     clip_seconds = float(config["audio"]["clip_seconds"])
     n_mels = int(config["audio"]["n_mels"])
     augmentation = config.get("augmentation", {})
+    evaluation = config.get("evaluation", {})
     train_dataset = ThreatAudioDataset(
         manifest,
         split="train",
@@ -86,7 +87,7 @@ def train(manifest: Path, config_path: Path | None, artifact_dir: Path | None = 
             optimizer.step()
             total_loss += loss.item() * labels.numel()
             total_examples += labels.numel()
-        val_metrics = evaluate_model(model, val_loader, device)
+        val_metrics = evaluate_model(model, val_loader, device, threshold_policy=evaluation)
         epoch_summary = {"epoch": epoch + 1, "train_loss": total_loss / max(total_examples, 1), **val_metrics}
         history.append(epoch_summary)
         progress = {
@@ -95,6 +96,9 @@ def train(manifest: Path, config_path: Path | None, artifact_dir: Path | None = 
             "train_loss": round(epoch_summary["train_loss"], 6),
             "val_accuracy": round(epoch_summary["accuracy"], 6),
             "val_macro_f1": round(epoch_summary["macro_f1"], 6),
+            "val_thresholded_macro_f1": round(epoch_summary["thresholded_metrics"]["macro_f1"], 6),
+            "val_background_threat_fp_rate": round(epoch_summary["background_false_positive_summary"]["thresholded"]["threat_false_positive_rate"], 6),
+            "selection_score": round(epoch_summary["selection_score"], 6),
             "val_per_class_recall": {label: round(epoch_summary["per_class_recall"][label], 6) for label in LABELS},
         }
         print(json.dumps(progress), flush=True)
@@ -103,14 +107,14 @@ def train(manifest: Path, config_path: Path | None, artifact_dir: Path | None = 
                 {"state_dict": model.state_dict(), "artifact": {"model_version": config["model_version"], "labels": LABELS, "audio": config["audio"], "epoch": epoch + 1}},
                 artifact_dir / f"checkpoint_epoch_{epoch + 1:03d}.pt",
             )
-        if epoch_summary["macro_f1"] > best_val_macro_f1:
-            best_val_macro_f1 = epoch_summary["macro_f1"]
+        if epoch_summary["selection_score"] > best_val_macro_f1:
+            best_val_macro_f1 = epoch_summary["selection_score"]
             best_state_dict = {name: tensor.detach().cpu().clone() for name, tensor in model.state_dict().items()}
             best_val_metrics = epoch_summary
             best_epoch = epoch + 1
 
     model.load_state_dict(best_state_dict)
-    test_metrics = evaluate_model(model, test_loader, device)
+    test_metrics = evaluate_model(model, test_loader, device, threshold_policy=evaluation)
     best_val_metrics = best_val_metrics or history[-1]
 
     artifact = {
@@ -118,6 +122,7 @@ def train(manifest: Path, config_path: Path | None, artifact_dir: Path | None = 
         "labels": LABELS,
         "audio": config["audio"],
         "augmentation": augmentation,
+        "evaluation": evaluation,
         "training": config["training"],
         "best_epoch": best_epoch,
         "history": history,

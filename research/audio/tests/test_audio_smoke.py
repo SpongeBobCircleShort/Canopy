@@ -77,6 +77,18 @@ training:
     fire_crackle: 2.0
     background_unknown: 1.0
   checkpoint_each_epoch: true
+evaluation:
+  threshold_step: 0.05
+  min_precision:
+    chainsaw: 0.0
+    gunshot: 0.0
+    vehicle: 0.0
+    fire_crackle: 0.0
+    background_unknown: 0.0
+  selection:
+    background_false_positive_penalty: 0.5
+    min_recall:
+      chainsaw: 0.0
 augmentation:
   enabled: false
 paths:
@@ -98,6 +110,9 @@ paths:
     assert (artifact_dir / "checkpoint_epoch_001.pt").exists()
     assert json.loads((artifact_dir / "labels.json").read_text()) == LABELS
     assert "macro_f1" in metrics
+    assert "thresholded_metrics" in metrics
+    assert "background_false_positive_summary" in metrics
+    assert "selection_score" in metrics
     assert result["label"] in LABELS
     assert 0 <= result["confidence"] <= 1
     assert set(result["scores"]) == set(LABELS)

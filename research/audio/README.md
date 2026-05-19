@@ -48,10 +48,10 @@ Supported sources are free text, with current builders emitting `esc50`, `urbans
 python -m research.audio.train \
   --manifest data/audio/manifests/threat_manifest_v1.csv \
   --config research/audio/config.yaml \
-  --artifact-dir models/audio/threat_cnn_v1
+  --artifact-dir models/audio/threat_cnn_v2
 ```
 
-Training uses a weighted sampler by default so scarce classes are not drowned out by vehicle/background examples. The default uses label-specific multipliers so `chainsaw` and `fire_crackle` get support without forcing every class to appear equally often. Training prints one JSON progress object per epoch with validation accuracy, macro F1, and per-class recall, then writes the best validation checkpoint to `model.pt`.
+Training uses a weighted sampler by default so scarce classes are not drowned out by vehicle/background examples. The default uses label-specific multipliers so `chainsaw` and `fire_crackle` get support without forcing every class to appear equally often. Training prints one JSON progress object per epoch with raw metrics, thresholded macro F1, background threat false-positive rate, and per-class recall, then writes the best false-positive-aware validation checkpoint to `model.pt`.
 
 Artifacts:
 
@@ -69,18 +69,18 @@ Artifacts:
 
 ```bash
 python -m research.audio.evaluate \
-  --model models/audio/threat_cnn_v1 \
+  --model models/audio/threat_cnn_v2 \
   --manifest data/audio/manifests/threat_manifest_v1.csv \
   --split test
 ```
 
-Evaluation writes `<split>_metrics.json` and includes macro F1, per-class recall, a confusion matrix, top off-diagonal confusions, and per-class threshold recommendations.
+Evaluation writes `<split>_metrics.json` and includes raw macro F1, thresholded metrics, per-class recall, confusion matrices, background false-positive summaries, and per-class threshold recommendations. The v2 defaults choose thresholds with precision floors for threat labels and select checkpoints with a penalty for background clips predicted as threats.
 
 ## Offline Inference
 
 ```bash
 python -m research.audio.infer \
-  --model models/audio/threat_cnn_v1 \
+  --model models/audio/threat_cnn_v2 \
   --audio /path/to/audio.wav
 ```
 
@@ -90,7 +90,7 @@ The CLI prints JSON compatible with the future Canopy classifier service boundar
 {
   "label": "chainsaw",
   "confidence": 0.91,
-  "model_version": "threat-cnn-v1",
+  "model_version": "threat-cnn-v2",
   "scores": {
     "chainsaw": 0.91,
     "gunshot": 0.02,
