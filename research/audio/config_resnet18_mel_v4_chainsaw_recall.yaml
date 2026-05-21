@@ -1,0 +1,77 @@
+model_version: threat-resnet18-mel-v4-chainsaw-recall
+labels:
+  - chainsaw
+  - gunshot
+  - vehicle
+  - fire_crackle
+  - background_unknown
+model:
+  architecture: resnet18
+  dropout: 0.2
+audio:
+  sample_rate: 16000
+  clip_seconds: 4.0
+  n_mels: 64
+training:
+  batch_size: 16
+  epochs: 20
+  learning_rate: 0.0002
+  seed: 42
+  device: auto
+  class_weighting: true
+  weighted_sampler: true
+  sampler_weight_power: 0.75
+  sampler_label_multipliers:
+    chainsaw: 5.0
+    gunshot: 2.0
+    vehicle: 1.0
+    fire_crackle: 10.0
+    background_unknown: 3.0
+  sampler_source_multipliers:
+    hard_negative: 2.0
+  checkpoint_each_epoch: true
+  early_stopping_patience: 0
+  scheduler: cosine
+  progress_log_interval: 25
+loss:
+  name: focal
+  gamma: 1.5
+evaluation:
+  threshold_step: 0.05
+  min_precision:
+    chainsaw: 0.5
+    gunshot: 0.8
+    vehicle: 0.75
+    fire_crackle: 0.5
+    background_unknown: 0.8
+  max_background_fp_rate:
+    chainsaw: 0.02
+    gunshot: 0.01
+    vehicle: 0.03
+    fire_crackle: 0.02
+  selection:
+    background_false_positive_penalty: 1.25
+    min_recall:
+      chainsaw: 0.6
+      gunshot: 0.8
+      vehicle: 0.7
+augmentation:
+  enabled: true
+  gain_min: 0.85
+  gain_max: 1.15
+  noise_std: 0.003
+  max_shift_fraction: 0.08
+  max_time_mask_frames: 12
+  max_freq_mask_bins: 8
+  background_mix_prob: 0.4
+  background_mix_labels:
+    - chainsaw
+    - gunshot
+    - vehicle
+    - fire_crackle
+  background_mix_max_clips: 200
+  background_snr_db_min: 5.0
+  background_snr_db_max: 20.0
+paths:
+  manifest: data/audio/manifests/threat_manifest_v4.csv
+  artifact_dir: models/audio/threat_resnet18_mel_v5_balanced

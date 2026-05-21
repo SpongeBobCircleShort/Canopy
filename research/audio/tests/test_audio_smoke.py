@@ -57,6 +57,9 @@ labels:
   - vehicle
   - fire_crackle
   - background_unknown
+model:
+  architecture: cnn
+  dropout: 0.0
 audio:
   sample_rate: 8000
   clip_seconds: 0.25
@@ -77,6 +80,9 @@ training:
     fire_crackle: 2.0
     background_unknown: 1.0
   checkpoint_each_epoch: true
+  scheduler: none
+loss:
+  name: cross_entropy
 evaluation:
   threshold_step: 0.05
   min_precision:

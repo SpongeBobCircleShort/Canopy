@@ -1,18 +1,21 @@
-model_version: threat-cnn-v3
+model_version: threat-resnet18-mel-v4-ablation
 labels:
   - chainsaw
   - gunshot
   - vehicle
   - fire_crackle
   - background_unknown
+model:
+  architecture: resnet18
+  dropout: 0.2
 audio:
   sample_rate: 16000
   clip_seconds: 4.0
   n_mels: 64
 training:
   batch_size: 16
-  epochs: 12
-  learning_rate: 0.001
+  epochs: 20
+  learning_rate: 0.0003
   seed: 42
   device: auto
   class_weighting: false
@@ -27,6 +30,11 @@ training:
   sampler_source_multipliers:
     hard_negative: 2.0
   checkpoint_each_epoch: true
+  early_stopping_patience: 5
+  scheduler: cosine
+  progress_log_interval: 25
+loss:
+  name: cross_entropy
 evaluation:
   threshold_step: 0.05
   min_precision:
@@ -35,8 +43,13 @@ evaluation:
     vehicle: 0.75
     fire_crackle: 0.6
     background_unknown: 0.8
+  max_background_fp_rate:
+    chainsaw: 0.02
+    gunshot: 0.01
+    vehicle: 0.03
+    fire_crackle: 0.02
   selection:
-    background_false_positive_penalty: 0.75
+    background_false_positive_penalty: 1.25
     min_recall:
       chainsaw: 0.6
       gunshot: 0.8
@@ -50,5 +63,5 @@ augmentation:
   max_time_mask_frames: 12
   max_freq_mask_bins: 8
 paths:
-  manifest: data/audio/manifests/threat_manifest_v3.csv
-  artifact_dir: models/audio/threat_cnn_v3
+  manifest: data/audio/manifests/threat_manifest_v4.csv
+  artifact_dir: models/audio/threat_resnet18_mel_v4_ablation

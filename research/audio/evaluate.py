@@ -7,7 +7,7 @@ from pathlib import Path
 from research.audio.config import load_config
 from research.audio.dataset import ThreatAudioDataset
 from research.audio.labels import LABELS
-from research.audio.model import build_model
+from research.audio.model import build_model, model_config_from_checkpoint
 
 BACKGROUND_LABEL = "background_unknown"
 
@@ -15,16 +15,18 @@ BACKGROUND_LABEL = "background_unknown"
 def evaluate_artifact(model_dir: Path, manifest: Path, split: str = "test") -> dict:
     torch = _torch()
     config = load_config(model_dir / "config.yaml")
+    model_config = config.get("model", {})
     dataset = ThreatAudioDataset(
         manifest,
         split=split,
         sample_rate=int(config["audio"]["sample_rate"]),
         clip_seconds=float(config["audio"]["clip_seconds"]),
         n_mels=int(config["audio"]["n_mels"]),
+        feature_type=_feature_type(model_config),
     )
     loader = torch.utils.data.DataLoader(dataset, batch_size=int(config["training"]["batch_size"]))
     checkpoint = torch.load(model_dir / "model.pt", map_location="cpu")
-    model = build_model(len(LABELS))
+    model = build_model(len(LABELS), model_config=model_config_from_checkpoint(checkpoint, config.get("model", {})))
     model.load_state_dict(checkpoint["state_dict"])
     metrics = evaluate_model(model, loader, torch.device("cpu"), threshold_policy=config.get("evaluation", {}))
     (model_dir / f"{split}_metrics.json").write_text(json.dumps(metrics, indent=2))
@@ -102,6 +104,8 @@ def _top_confusions(matrix: list[list[int]], limit: int = 10) -> list[dict]:
 def _threshold_recommendations(targets: list[int], score_rows: list[list[float]], threshold_policy: dict) -> dict:
     recommendations = {}
     min_precision = threshold_policy.get("min_precision", {})
+    min_recall = threshold_policy.get("min_recall", {})
+    max_background_fp_rate = threshold_policy.get("max_background_fp_rate", {})
     threshold_step = float(threshold_policy.get("threshold_step", 0.05))
     threshold_values = []
     threshold = threshold_step
@@ -111,25 +115,80 @@ def _threshold_recommendations(targets: list[int], score_rows: list[list[float]]
     for label_index, label in enumerate(LABELS):
         candidates = []
         for threshold in threshold_values:
-            true_positive = false_positive = false_negative = 0
+            true_positive = false_positive = false_negative = background_false_positive = background_support = 0
             for target, scores in zip(targets, score_rows, strict=True):
                 predicted_positive = scores[label_index] >= threshold
                 actual_positive = target == label_index
+                actual_background = LABELS[target] == BACKGROUND_LABEL
+                if actual_background:
+                    background_support += 1
                 if predicted_positive and actual_positive:
                     true_positive += 1
                 elif predicted_positive and not actual_positive:
                     false_positive += 1
+                    if actual_background:
+                        background_false_positive += 1
                 elif not predicted_positive and actual_positive:
                     false_negative += 1
             precision = true_positive / max(true_positive + false_positive, 1)
             recall = true_positive / max(true_positive + false_negative, 1)
             f1 = 2 * precision * recall / max(precision + recall, 1e-12)
-            candidates.append({"threshold": threshold, "precision": precision, "recall": recall, "f1": f1})
+            background_fp_rate = background_false_positive / max(background_support, 1)
+            candidates.append(
+                {
+                    "threshold": threshold,
+                    "precision": precision,
+                    "recall": recall,
+                    "f1": f1,
+                    "background_fp_rate": background_fp_rate,
+                }
+            )
         precision_floor = float(min_precision.get(label, 0.0))
-        qualified = [candidate for candidate in candidates if candidate["precision"] >= precision_floor and candidate["recall"] > 0]
-        best = max(qualified or candidates, key=lambda item: (item["f1"], item["recall"], item["precision"]))
+        recall_floor = float(min_recall.get(label, 0.0))
+        background_fp_ceiling = _optional_float(max_background_fp_rate.get(label))
+        qualified = [
+            candidate
+            for candidate in candidates
+            if candidate["precision"] >= precision_floor and candidate["recall"] >= recall_floor and candidate["recall"] > 0
+            and (background_fp_ceiling is None or candidate["background_fp_rate"] <= background_fp_ceiling)
+        ]
+        if not qualified and recall_floor > 0:
+            qualified = [
+                candidate
+                for candidate in candidates
+                if candidate["precision"] >= precision_floor
+                and candidate["recall"] > 0
+                and (background_fp_ceiling is None or candidate["background_fp_rate"] <= background_fp_ceiling)
+            ]
+        if not qualified and background_fp_ceiling is not None:
+            qualified = [
+                candidate
+                for candidate in candidates
+                if candidate["background_fp_rate"] <= background_fp_ceiling and candidate["recall"] > 0
+            ]
+        if qualified:
+            best = max(qualified, key=lambda item: (item["f1"], item["recall"], item["precision"]))
+        elif background_fp_ceiling is not None:
+            best = max(
+                candidates,
+                key=lambda item: (
+                    -item["background_fp_rate"],
+                    item["f1"],
+                    item["recall"],
+                    item["precision"],
+                ),
+            )
+        else:
+            best = max(candidates, key=lambda item: (item["f1"], item["recall"], item["precision"]))
         recommendations[label] = {key: round(value, 4) for key, value in best.items()}
     return recommendations
+
+
+def _optional_float(value) -> float | None:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
 
 
 def _thresholded_predictions(score_rows: list[list[float]], thresholds: dict) -> list[int]:
@@ -189,6 +248,15 @@ def _selection_score(thresholded_metrics: dict, background_fp_summary: dict, thr
         if recall < float(minimum):
             score -= float(minimum) - recall
     return score
+
+
+def _feature_type(model_config: dict) -> str:
+    if str(model_config.get("input", "")).lower() == "waveform":
+        return "waveform"
+    architecture = str(model_config.get("architecture", "cnn")).lower()
+    if architecture in {"wav2vec2_frozen", "wav2vec2"}:
+        return "waveform"
+    return "log_mel"
 
 
 def _torch():

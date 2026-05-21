@@ -7,8 +7,11 @@ from typing import Any
 from research.audio.labels import LABELS
 
 DEFAULT_CONFIG: dict[str, Any] = {
-    "model_version": "threat-cnn-v2",
+    "model_version": "threat-cnn-v3",
     "labels": LABELS,
+    "model": {
+        "architecture": "cnn",
+    },
     "audio": {
         "sample_rate": 16000,
         "clip_seconds": 4.0,
@@ -30,7 +33,11 @@ DEFAULT_CONFIG: dict[str, Any] = {
             "fire_crackle": 16.0,
             "background_unknown": 1.5,
         },
+        "sampler_source_multipliers": {
+            "hard_negative": 2.0,
+        },
         "checkpoint_each_epoch": True,
+        "scheduler": "none",
     },
     "evaluation": {
         "threshold_step": 0.05,
@@ -60,8 +67,8 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "max_freq_mask_bins": 8,
     },
     "paths": {
-        "manifest": "data/audio/manifests/threat_manifest_v1.csv",
-        "artifact_dir": "models/audio/threat_cnn_v2",
+        "manifest": "data/audio/manifests/threat_manifest_v3.csv",
+        "artifact_dir": "models/audio/threat_cnn_v3",
     },
 }
 

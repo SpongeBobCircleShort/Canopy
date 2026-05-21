@@ -10,6 +10,7 @@
     "lint": "eslint src --ext js,jsx"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.106.1",
     "@vitejs/plugin-react": "latest",
     "leaflet": "latest",
     "react": "latest",

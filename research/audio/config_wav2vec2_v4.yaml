@@ -1,18 +1,25 @@
-model_version: threat-cnn-v3
+model_version: threat-wav2vec2-v4
 labels:
   - chainsaw
   - gunshot
   - vehicle
   - fire_crackle
   - background_unknown
+model:
+  architecture: wav2vec2_frozen
+  input: waveform
+  bundle: WAV2VEC2_BASE
+  embedding_dim: 768
+  hidden_dim: 256
+  dropout: 0.25
 audio:
   sample_rate: 16000
   clip_seconds: 4.0
   n_mels: 64
 training:
-  batch_size: 16
-  epochs: 12
-  learning_rate: 0.001
+  batch_size: 8
+  epochs: 20
+  learning_rate: 0.0003
   seed: 42
   device: auto
   class_weighting: false
@@ -27,6 +34,11 @@ training:
   sampler_source_multipliers:
     hard_negative: 2.0
   checkpoint_each_epoch: true
+  early_stopping_patience: 5
+  scheduler: cosine
+  progress_log_interval: 25
+loss:
+  name: cross_entropy
 evaluation:
   threshold_step: 0.05
   min_precision:
@@ -35,20 +47,24 @@ evaluation:
     vehicle: 0.75
     fire_crackle: 0.6
     background_unknown: 0.8
+  max_background_fp_rate:
+    chainsaw: 0.02
+    gunshot: 0.01
+    vehicle: 0.03
+    fire_crackle: 0.02
   selection:
-    background_false_positive_penalty: 0.75
+    background_false_positive_penalty: 1.25
     min_recall:
       chainsaw: 0.6
       gunshot: 0.8
       vehicle: 0.7
 augmentation:
   enabled: true
-  gain_min: 0.85
-  gain_max: 1.15
-  noise_std: 0.003
-  max_shift_fraction: 0.08
-  max_time_mask_frames: 12
-  max_freq_mask_bins: 8
+  gain_min: 0.90
+  gain_max: 1.10
+  noise_std: 0.0015
+  max_shift_fraction: 0.05
+  crop_mode: random
 paths:
-  manifest: data/audio/manifests/threat_manifest_v3.csv
-  artifact_dir: models/audio/threat_cnn_v3
+  manifest: data/audio/manifests/threat_manifest_v4.csv
+  artifact_dir: models/audio/threat_wav2vec2_v4

@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 
-def load_and_preprocess_audio(path: str | Path, *, sample_rate: int, clip_seconds: float):
+def load_and_preprocess_audio(path: str | Path, *, sample_rate: int, clip_seconds: float, crop_mode: str = "start"):
     torch, torchaudio = _torch_modules()
     try:
         waveform, source_rate = torchaudio.load(str(path))
@@ -18,19 +18,31 @@ def load_and_preprocess_audio(path: str | Path, *, sample_rate: int, clip_second
     if current_frames < target_frames:
         waveform = torch.nn.functional.pad(waveform, (0, target_frames - current_frames))
     elif current_frames > target_frames:
-        waveform = waveform[:, :target_frames]
+        max_start = current_frames - target_frames
+        if crop_mode == "random":
+            start = int(torch.randint(0, max_start + 1, (1,)).item())
+        elif crop_mode == "center":
+            start = max_start // 2
+        else:
+            start = 0
+        waveform = waveform[:, start : start + target_frames]
     return waveform
 
 
 def augment_waveform(
     waveform,
     *,
+    sample_rate: int,
     gain_min: float = 0.85,
     gain_max: float = 1.15,
     noise_std: float = 0.003,
     max_shift_fraction: float = 0.08,
+    pitch_shift_semitones: float = 0.0,
+    background_mix_waveform=None,
+    background_snr_db_min: float = 5.0,
+    background_snr_db_max: float = 20.0,
 ):
-    torch, _ = _torch_modules()
+    torch, torchaudio = _torch_modules()
     if gain_max > 0 and gain_min > 0:
         gain = torch.empty(1).uniform_(gain_min, gain_max).item()
         waveform = waveform * gain
@@ -41,6 +53,20 @@ def augment_waveform(
             waveform = torch.roll(waveform, shifts=shift, dims=1)
     if noise_std > 0:
         waveform = waveform + torch.randn_like(waveform) * noise_std
+    if pitch_shift_semitones > 0:
+        steps = torch.empty(1).uniform_(-pitch_shift_semitones, pitch_shift_semitones).item()
+        waveform = torchaudio.functional.pitch_shift(waveform, sample_rate, steps)
+    if background_mix_waveform is not None:
+        signal_rms = waveform.pow(2).mean().sqrt().clamp_min(1e-9)
+        snr_db = torch.empty(1).uniform_(background_snr_db_min, background_snr_db_max).item()
+        snr_linear = 10 ** (snr_db / 20.0)
+        bg = background_mix_waveform
+        bg_rms = bg.pow(2).mean().sqrt().clamp_min(1e-9)
+        bg_scaled = bg * (signal_rms / (bg_rms * snr_linear))
+        if bg_scaled.shape[1] < waveform.shape[1]:
+            repeats = (waveform.shape[1] // bg_scaled.shape[1]) + 1
+            bg_scaled = bg_scaled.repeat(1, repeats)
+        waveform = waveform + bg_scaled[:, :waveform.shape[1]]
     return waveform.clamp(-1.0, 1.0)
 
 
@@ -84,16 +110,29 @@ def load_log_mel(
     n_mels: int,
     augment: bool = False,
     augmentation: dict | None = None,
+    background_waveforms: list | None = None,
+    crop_mode: str = "center",
 ):
-    waveform = load_and_preprocess_audio(path, sample_rate=sample_rate, clip_seconds=clip_seconds)
+    torch, _ = _torch_modules()
+    waveform = load_and_preprocess_audio(path, sample_rate=sample_rate, clip_seconds=clip_seconds, crop_mode=crop_mode)
     augmentation = augmentation or {}
     if augment:
+        bg_waveform = None
+        if background_waveforms and float(augmentation.get("background_mix_prob", 0.0)) > 0:
+            if torch.rand(1).item() < float(augmentation.get("background_mix_prob", 0.0)):
+                import random
+                bg_waveform = random.choice(background_waveforms)
         waveform = augment_waveform(
             waveform,
+            sample_rate=sample_rate,
             gain_min=float(augmentation.get("gain_min", 0.85)),
             gain_max=float(augmentation.get("gain_max", 1.15)),
             noise_std=float(augmentation.get("noise_std", 0.003)),
             max_shift_fraction=float(augmentation.get("max_shift_fraction", 0.08)),
+            pitch_shift_semitones=float(augmentation.get("pitch_shift_semitones", 0.0)),
+            background_mix_waveform=bg_waveform,
+            background_snr_db_min=float(augmentation.get("background_snr_db_min", 5.0)),
+            background_snr_db_max=float(augmentation.get("background_snr_db_max", 20.0)),
         )
     log_mel = waveform_to_log_mel(waveform, sample_rate=sample_rate, n_mels=n_mels)
     if augment:
@@ -105,20 +144,69 @@ def load_log_mel(
     return log_mel
 
 
+def load_waveform_feature(
+    path: str | Path,
+    *,
+    sample_rate: int,
+    clip_seconds: float,
+    augment: bool = False,
+    augmentation: dict | None = None,
+    background_waveforms: list | None = None,
+    crop_mode: str = "center",
+):
+    torch, _ = _torch_modules()
+    waveform = load_and_preprocess_audio(path, sample_rate=sample_rate, clip_seconds=clip_seconds, crop_mode=crop_mode)
+    augmentation = augmentation or {}
+    if augment:
+        bg_waveform = None
+        if background_waveforms and float(augmentation.get("background_mix_prob", 0.0)) > 0:
+            if torch.rand(1).item() < float(augmentation.get("background_mix_prob", 0.0)):
+                import random
+
+                bg_waveform = random.choice(background_waveforms)
+        waveform = augment_waveform(
+            waveform,
+            sample_rate=sample_rate,
+            gain_min=float(augmentation.get("gain_min", 0.85)),
+            gain_max=float(augmentation.get("gain_max", 1.15)),
+            noise_std=float(augmentation.get("noise_std", 0.003)),
+            max_shift_fraction=float(augmentation.get("max_shift_fraction", 0.08)),
+            pitch_shift_semitones=float(augmentation.get("pitch_shift_semitones", 0.0)),
+            background_mix_waveform=bg_waveform,
+            background_snr_db_min=float(augmentation.get("background_snr_db_min", 5.0)),
+            background_snr_db_max=float(augmentation.get("background_snr_db_max", 20.0)),
+        )
+    return waveform
+
+
 def _torch_modules():
     try:
         import torch
         import torchaudio
-    except ImportError as exc:
-        raise RuntimeError("Install research/audio/requirements-audio.txt to use audio model code") from exc
+    except (ImportError, OSError) as exc:
+        raise RuntimeError(
+            "Install matching torch/torchaudio builds from research/audio/requirements-audio.txt. "
+            "If torchaudio fails with a missing symbol, torch and torchaudio are binary-incompatible "
+            "in the active Python environment."
+        ) from exc
     return torch, torchaudio
 
 
 def _load_audio_fallback(path: str | Path, torch):
+    soundfile_error: Exception | None = None
     try:
         return _load_with_soundfile(path, torch)
-    except (ImportError, RuntimeError):
+    except (ImportError, RuntimeError) as exc:
+        soundfile_error = exc
+    try:
         return _load_wav_with_scipy(path, torch)
+    except RuntimeError as exc:
+        if soundfile_error is not None:
+            raise RuntimeError(
+                f"Could not decode audio file {path}. Install soundfile/libsndfile to decode non-PCM WAV files "
+                "such as ADPCM UrbanSound8K clips."
+            ) from exc
+        raise
 
 
 def _load_with_soundfile(path: str | Path, torch):
@@ -138,7 +226,10 @@ def _load_wav_with_scipy(path: str | Path, torch):
     except ImportError as exc:
         raise RuntimeError("Install scipy or a torchaudio backend that can decode WAV files") from exc
 
-    sample_rate, data = wavfile.read(str(path))
+    try:
+        sample_rate, data = wavfile.read(str(path))
+    except ValueError as exc:
+        raise RuntimeError("scipy can only decode PCM/float WAV files; install soundfile for this audio format") from exc
     tensor = torch.as_tensor(data)
     if tensor.ndim == 1:
         tensor = tensor.unsqueeze(0)

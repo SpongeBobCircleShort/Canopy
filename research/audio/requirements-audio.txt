@@ -1,8 +1,10 @@
 torch==2.6.0
 torchaudio==2.6.0
+torchvision==0.21.0
 numpy>=1.26,<3
 pandas>=2.2,<3
 scikit-learn>=1.5,<2
 tqdm>=4.66,<5
 PyYAML>=6.0,<7
 soundfile>=0.13,<1
+datasets>=4.8,<5

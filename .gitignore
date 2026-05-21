@@ -2,6 +2,7 @@
 __pycache__/
 *.py[cod]
 .venv/
+.venv-audio/
 .pytest_cache/
 
 # Node
