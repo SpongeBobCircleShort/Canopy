@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: canopy-api
+    env: docker
+    dockerfilePath: api/Dockerfile
+    dockerContext: api
+    plan: free
+    envVars:
+      - key: DATABASE_URL
+        value: postgresql://postgres:Chomu%402BA8E41S@db.tspmibkplwonyombotgy.supabase.co:5432/postgres
+      - key: JWT_SECRET
+        generateValue: true
+      - key: AUDIO_STORAGE_PATH
+        value: /tmp/canopy-audio
+      - key: PORT
+        value: 8000
