@@ -13,7 +13,7 @@ from research.audio.model import build_model, model_config_from_checkpoint
 def infer(model_dir: Path, audio_path: Path) -> dict:
     torch = _torch()
     config = load_config(model_dir / "config.yaml")
-    checkpoint = torch.load(model_dir / "model.pt", map_location="cpu")
+    checkpoint = torch.load(model_dir / "model.pt", map_location="cpu", weights_only=False)
     labels = json.loads((model_dir / "labels.json").read_text()) if (model_dir / "labels.json").exists() else LABELS
 
     model = build_model(len(labels), model_config=model_config_from_checkpoint(checkpoint, config.get("model", {})))

@@ -28,7 +28,7 @@ def mine_hard_negatives(
     target_labels = target_labels or DEFAULT_TARGET_LABELS
     config = load_config(model_dir / "config.yaml")
     labels = json.loads((model_dir / "labels.json").read_text()) if (model_dir / "labels.json").exists() else LABELS
-    checkpoint = torch.load(model_dir / "model.pt", map_location="cpu")
+    checkpoint = torch.load(model_dir / "model.pt", map_location="cpu", weights_only=False)
     model = build_model(len(labels), model_config=model_config_from_checkpoint(checkpoint, config.get("model", {})))
     model.load_state_dict(checkpoint["state_dict"])
     model.eval()

@@ -1,6 +1,7 @@
+import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
 
-function DotMap({ highlightIndia }) {
+function buildDotMap(highlightIndia) {
   const w = 56
   const h = 28
   const dots = []
@@ -10,13 +11,24 @@ function DotMap({ highlightIndia }) {
     (x > 30 && x < 50 && y > 4 && y < 24) ||
     (highlightIndia && india(x, y))
 
+  let seed = highlightIndia ? 42 : 7
+  const rand = () => {
+    seed = (seed * 16807) % 2147483647
+    return seed / 2147483647
+  }
+
   for (let y = 0; y < h; y += 1) {
     for (let x = 0; x < w; x += 1) {
-      if (Math.random() > 0.38) {
+      if (rand() > 0.38) {
         dots.push({ x, y, hi: belt(x, y) })
       }
     }
   }
+  return { w, h, dots }
+}
+
+function DotMap({ highlightIndia }) {
+  const { w, h, dots } = useMemo(() => buildDotMap(highlightIndia), [highlightIndia])
 
   return (
     <svg className="landing-map" viewBox={`0 0 ${w * 8} ${h * 8}`} preserveAspectRatio="xMidYMax meet" aria-hidden="true">

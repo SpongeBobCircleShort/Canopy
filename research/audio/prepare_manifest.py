@@ -454,15 +454,17 @@ def _rows_from_canopy_tree(root: Path) -> list[ManifestRow]:
 
 def _parse_canopy_relative_path(relative: Path) -> tuple[str, str, str] | None:
     parts = relative.parts
+    # Check split/label layout before label-only layout so "train/fire_crackle/..." is not
+    # parsed as label_dir="train" (vehicle alias in LABEL_ALIASES).
+    if parts[0] in MANUAL_SPLITS and len(parts) > 2 and parts[1] in LABEL_ALIASES:
+        split = parts[0]
+        label_dir = parts[1]
+        return label_dir, split, "/".join(parts[2:-1])
     if parts[0] in LABEL_ALIASES:
         label_dir = parts[0]
         split = parts[1] if len(parts) > 2 and parts[1] in MANUAL_SPLITS else ""
         subcategory_start = 2 if split else 1
         return label_dir, split, "/".join(parts[subcategory_start:-1])
-    if parts[0] in MANUAL_SPLITS and len(parts) > 2 and parts[1] in LABEL_ALIASES:
-        split = parts[0]
-        label_dir = parts[1]
-        return label_dir, split, "/".join(parts[2:-1])
     return None
 
 

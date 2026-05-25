@@ -25,7 +25,7 @@ def evaluate_artifact(model_dir: Path, manifest: Path, split: str = "test") -> d
         feature_type=_feature_type(model_config),
     )
     loader = torch.utils.data.DataLoader(dataset, batch_size=int(config["training"]["batch_size"]))
-    checkpoint = torch.load(model_dir / "model.pt", map_location="cpu")
+    checkpoint = torch.load(model_dir / "model.pt", map_location="cpu", weights_only=False)
     model = build_model(len(LABELS), model_config=model_config_from_checkpoint(checkpoint, config.get("model", {})))
     model.load_state_dict(checkpoint["state_dict"])
     metrics = evaluate_model(model, loader, torch.device("cpu"), threshold_policy=config.get("evaluation", {}))
