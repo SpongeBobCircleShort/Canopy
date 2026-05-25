@@ -1,129 +1,162 @@
-// src/api.js – Supabase based data layer
-import { supabase } from './supabaseClient.js';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
 
-function requireSupabase() {
-  if (!supabase) {
-    throw new Error('Dashboard auth is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in Vercel.');
+async function request(path, options = {}) {
+  const response = await fetch(`${API_BASE_URL}${path}`, options)
+  if (!response.ok) {
+    let message = `Request failed with ${response.status}`
+    try {
+      const body = await response.json()
+      message = body.detail || message
+    } catch {
+      // Keep fallback message when the response body is not JSON.
+    }
+    throw new Error(message)
   }
-  return supabase;
+  if (response.status === 204) return null
+  return response.json()
 }
 
-/** Auth **/
-export async function signup({ email, password }) {
-  const client = requireSupabase();
-  const { data, error } = await client.auth.signUp({ email, password });
-  if (error) throw error;
-  const { session } = data;
-  if (session?.access_token) await client.auth.setSession(session.access_token);
-  return { access_token: session?.access_token };
+function authHeaders(token) {
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
+
+export async function fetchHealth() {
+  return request('/api/health')
+}
+
+export async function fetchMe(token) {
+  return request('/api/auth/me', { headers: authHeaders(token) })
+}
+
+export async function fetchAlerts(token, params = {}) {
+  const search = new URLSearchParams()
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') search.set(key, value)
+  })
+  return request(`/api/alerts${search.toString() ? `?${search}` : ''}`, { headers: authHeaders(token) })
+}
+
+export async function fetchSensors(token) {
+  return request('/api/sensors', { headers: authHeaders(token) })
+}
+
+export async function fetchRegions(token) {
+  return request('/api/regions', { headers: authHeaders(token) })
+}
+
+export async function fetchSatelliteChanges(token) {
+  return request('/api/satellite-changes', { headers: authHeaders(token) })
+}
+
+export async function createSatelliteChange(token, payload) {
+  return request('/api/satellite-changes', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders(token) },
+    body: JSON.stringify(payload),
+  })
+}
+
+export async function runFusion(token, payload = {}) {
+  return request('/api/fusion/run', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders(token) },
+    body: JSON.stringify(payload),
+  })
+}
+
+export async function fetchNdviBatches(token) {
+  return request('/api/ndvi/batches', { headers: authHeaders(token) })
+}
+
+export async function uploadNdviCsv(token, { regionId, lossThreshold, defaultConfidence, file }) {
+  const formData = new FormData()
+  if (regionId) formData.set('region_id', regionId)
+  formData.set('loss_threshold', lossThreshold ?? -0.15)
+  formData.set('default_confidence', defaultConfidence ?? 0.75)
+  formData.set('file', file)
+  return request('/api/ndvi/upload-csv', {
+    method: 'POST',
+    headers: authHeaders(token),
+    body: formData,
+  })
+}
+
+export async function signup({ name, email, password, organization_name, invite_token }) {
+  return request('/api/auth/signup', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, email, password, organization_name, invite_token }),
+  })
 }
 
 export async function login({ email, password }) {
-  const client = requireSupabase();
-  const { data, error } = await client.auth.signInWithPassword({ email, password });
-  if (error) throw error;
-  const { session } = data;
-  if (session?.access_token) await client.auth.setSession(session.access_token);
-  return { access_token: session?.access_token };
+  return request('/api/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  })
 }
 
-export async function logout() {
-  const client = requireSupabase();
-  const { error } = await client.auth.signOut();
-  if (error) throw error;
+export async function fetchInvites(token, orgId) {
+  return request(`/api/organizations/${orgId}/invites`, { headers: authHeaders(token) })
 }
 
-/** Helpers **/
-function handleError(error) {
-  if (error) throw new Error(error.message || 'Supabase error');
+export async function createInvite(token, orgId, payload) {
+  return request(`/api/organizations/${orgId}/invites`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders(token) },
+    body: JSON.stringify(payload),
+  })
 }
 
-/** Health check **/
-export async function fetchHealth() {
-  // Simple static health check
-  return { status: 'ok' };
+export async function revokeInvite(token, orgId, inviteId) {
+  return request(`/api/organizations/${orgId}/invites/${inviteId}/revoke`, {
+    method: 'POST',
+    headers: authHeaders(token),
+  })
 }
 
-/** User profile **/
-export async function fetchMe(token) {
-  const client = requireSupabase();
-  const { data: { user }, error } = await client.auth.getUser();
-  handleError(error);
-  return {
-    id: user?.id,
-    email: user?.email,
-    role: user?.app_metadata?.role || 'user',
-    org_id: user?.app_metadata?.org_id || null,
-  };
+export async function createRegion(token, payload) {
+  return request('/api/regions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders(token) },
+    body: JSON.stringify(payload),
+  })
 }
 
-/** Alerts **/
-export async function fetchAlerts(token, params = {}) {
-  const client = requireSupabase();
-  const { data, error } = await client.from('alerts').select('*').match(params);
-  handleError(error);
-  return data;
+export async function createSensor(token, payload) {
+  return request('/api/sensors', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders(token) },
+    body: JSON.stringify(payload),
+  })
 }
 
-/** Sensors **/
-export async function fetchSensors(token) {
-  const client = requireSupabase();
-  const { data, error } = await client.from('sensors').select('*');
-  handleError(error);
-  return data;
+export async function uploadClip(token, { sensorId, file }) {
+  const formData = new FormData()
+  formData.set('sensor_id', sensorId)
+  formData.set('file', file)
+  return request('/api/clips/upload', {
+    method: 'POST',
+    headers: authHeaders(token),
+    body: formData,
+  })
 }
 
-/** Regions **/
-export async function fetchRegions(token) {
-  const client = requireSupabase();
-  const { data, error } = await client.from('regions').select('*');
-  handleError(error);
-  return data;
+export async function updateAlertStatus(token, alertId, payload) {
+  return request(`/api/alerts/${alertId}/status`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...authHeaders(token) },
+    body: JSON.stringify(payload),
+  })
 }
 
-/** Satellite Changes **/
-export async function fetchSatelliteChanges(token) {
-  const client = requireSupabase();
-  const { data, error } = await client.from('satellite_changes').select('*');
-  handleError(error);
-  return data;
-}
-
-/** Create Satellite Change **/
-export async function createSatelliteChange(token, payload) {
-  const client = requireSupabase();
-  const { data, error } = await client.from('satellite_changes').insert(payload).single();
-  handleError(error);
-  return data;
-}
-
-/** NDVI Batches (placeholder) **/
-export async function fetchNdviBatches(token) {
-  const client = requireSupabase();
-  const { data, error } = await client.from('ndvi_batches').select('*');
-  if (error) return [];
-  return data;
-}
-
-/** Upload NDVI CSV (placeholder) **/
-export async function uploadNdviCsv(token, { regionId, lossThreshold, defaultConfidence, file }) {
-  throw new Error('uploadNdviCsv not implemented');
-}
-
-/** Fusion (placeholder) **/
-export async function runFusion(token, payload = {}) {
-  const client = requireSupabase();
-  const { data, error } = await client.functions.invoke('fusion-run', { body: payload });
-  if (error) throw error;
-  return data;
-}
-
-/** Export Alerts URL **/
 export function exportAlertsUrl() {
-  return '';
+  return `${API_BASE_URL}/api/alerts/export?format=csv`
 }
 
-/** Download Alerts CSV (placeholder) **/
 export async function downloadAlertsCsv(token) {
-  throw new Error('downloadAlertsCsv not implemented');
+  const response = await fetch(exportAlertsUrl(), { headers: authHeaders(token) })
+  if (!response.ok) throw new Error(`Export failed with ${response.status}`)
+  return response.blob()
 }
