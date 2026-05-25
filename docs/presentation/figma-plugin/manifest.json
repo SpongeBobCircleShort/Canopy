@@ -1,0 +1,8 @@
+{
+  "name": "Canopy Institutional Deck Updater",
+  "id": "canopy-institutional-deck-updater",
+  "api": "1.0.0",
+  "main": "code.js",
+  "editorType": ["slides"],
+  "networkAccess": { "allowedDomains": ["none"] }
+}

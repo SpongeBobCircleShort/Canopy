@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App.jsx'
 import ToastStack from './components/ToastStack.jsx'
@@ -62,19 +63,26 @@ beforeEach(() => {
   )
 })
 
-describe('App', () => {
-  it('renders the auth prompt when not logged in', async () => {
-    render(<App />)
+function renderAt(path) {
+  return render(
+    <MemoryRouter initialEntries={[path]}>
+      <App />
+    </MemoryRouter>,
+  )
+}
 
-    expect(screen.getByRole('heading', { name: /CANOPY/i })).toBeInTheDocument()
-    expect(screen.getByText(/Open-source forest monitoring/i)).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: /Authenticate/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Log in/i })).toBeInTheDocument()
+describe('App', () => {
+  it('renders the public landing page at /', async () => {
+    renderAt('/')
+
+    expect(screen.getByText(/Scale conservation intelligence/i)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /View full presentation/i })).toHaveAttribute('href', '/deck.html')
+    expect(screen.getByRole('link', { name: /Open dashboard/i })).toHaveAttribute('href', '/app')
   })
 
   it('renders dashboard overview and can navigate to ingestion', async () => {
     window.localStorage.setItem('canopy_token', 'demo-token')
-    render(<App />)
+    renderAt('/app')
 
     expect(await screen.findByRole('heading', { name: /Global Overview/i })).toBeInTheDocument()
     expect(screen.getByTestId('map')).toBeInTheDocument()
@@ -90,7 +98,7 @@ describe('App', () => {
 
   it('can navigate to settings page', async () => {
     window.localStorage.setItem('canopy_token', 'demo-token')
-    render(<App />)
+    renderAt('/app')
 
     expect(await screen.findByRole('heading', { name: /Global Overview/i })).toBeInTheDocument()
 
@@ -103,7 +111,7 @@ describe('App', () => {
 
   it('toggles live simulation state', async () => {
     window.localStorage.setItem('canopy_token', 'demo-token')
-    render(<App />)
+    renderAt('/app')
 
     const simulateButton = await screen.findByRole('button', { name: /Simulate Live Data/i })
     expect(simulateButton).toBeInTheDocument()
@@ -117,7 +125,7 @@ describe('App', () => {
 
   it('opens and closes the responsive navigation menu', async () => {
     window.localStorage.setItem('canopy_token', 'demo-token')
-    render(<App />)
+    renderAt('/app')
 
     await screen.findByRole('heading', { name: /Global Overview/i })
 

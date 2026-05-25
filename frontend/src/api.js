@@ -1,25 +1,35 @@
 // src/api.js – Supabase based data layer
 import { supabase } from './supabaseClient.js';
 
+function requireSupabase() {
+  if (!supabase) {
+    throw new Error('Dashboard auth is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in Vercel.');
+  }
+  return supabase;
+}
+
 /** Auth **/
 export async function signup({ email, password }) {
-  const { data, error } = await supabase.auth.signUp({ email, password });
+  const client = requireSupabase();
+  const { data, error } = await client.auth.signUp({ email, password });
   if (error) throw error;
   const { session } = data;
-  if (session?.access_token) await supabase.auth.setSession(session.access_token);
+  if (session?.access_token) await client.auth.setSession(session.access_token);
   return { access_token: session?.access_token };
 }
 
 export async function login({ email, password }) {
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  const client = requireSupabase();
+  const { data, error } = await client.auth.signInWithPassword({ email, password });
   if (error) throw error;
   const { session } = data;
-  if (session?.access_token) await supabase.auth.setSession(session.access_token);
+  if (session?.access_token) await client.auth.setSession(session.access_token);
   return { access_token: session?.access_token };
 }
 
 export async function logout() {
-  const { error } = await supabase.auth.signOut();
+  const client = requireSupabase();
+  const { error } = await client.auth.signOut();
   if (error) throw error;
 }
 
@@ -36,7 +46,8 @@ export async function fetchHealth() {
 
 /** User profile **/
 export async function fetchMe(token) {
-  const { data: { user }, error } = await supabase.auth.getUser();
+  const client = requireSupabase();
+  const { data: { user }, error } = await client.auth.getUser();
   handleError(error);
   return {
     id: user?.id,
@@ -48,42 +59,48 @@ export async function fetchMe(token) {
 
 /** Alerts **/
 export async function fetchAlerts(token, params = {}) {
-  const { data, error } = await supabase.from('alerts').select('*').match(params);
+  const client = requireSupabase();
+  const { data, error } = await client.from('alerts').select('*').match(params);
   handleError(error);
   return data;
 }
 
 /** Sensors **/
 export async function fetchSensors(token) {
-  const { data, error } = await supabase.from('sensors').select('*');
+  const client = requireSupabase();
+  const { data, error } = await client.from('sensors').select('*');
   handleError(error);
   return data;
 }
 
 /** Regions **/
 export async function fetchRegions(token) {
-  const { data, error } = await supabase.from('regions').select('*');
+  const client = requireSupabase();
+  const { data, error } = await client.from('regions').select('*');
   handleError(error);
   return data;
 }
 
 /** Satellite Changes **/
 export async function fetchSatelliteChanges(token) {
-  const { data, error } = await supabase.from('satellite_changes').select('*');
+  const client = requireSupabase();
+  const { data, error } = await client.from('satellite_changes').select('*');
   handleError(error);
   return data;
 }
 
 /** Create Satellite Change **/
 export async function createSatelliteChange(token, payload) {
-  const { data, error } = await supabase.from('satellite_changes').insert(payload).single();
+  const client = requireSupabase();
+  const { data, error } = await client.from('satellite_changes').insert(payload).single();
   handleError(error);
   return data;
 }
 
 /** NDVI Batches (placeholder) **/
 export async function fetchNdviBatches(token) {
-  const { data, error } = await supabase.from('ndvi_batches').select('*');
+  const client = requireSupabase();
+  const { data, error } = await client.from('ndvi_batches').select('*');
   if (error) return [];
   return data;
 }
@@ -95,7 +112,8 @@ export async function uploadNdviCsv(token, { regionId, lossThreshold, defaultCon
 
 /** Fusion (placeholder) **/
 export async function runFusion(token, payload = {}) {
-  const { data, error } = await supabase.functions.invoke('fusion-run', { body: payload });
+  const client = requireSupabase();
+  const { data, error } = await client.functions.invoke('fusion-run', { body: payload });
   if (error) throw error;
   return data;
 }

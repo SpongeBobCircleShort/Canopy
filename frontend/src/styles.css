@@ -654,3 +654,199 @@ button:disabled {
     border-bottom: none;
   }
 }
+
+/* Public landing (canopyindia.vercel.app) */
+.landing-page {
+  min-height: 100vh;
+  background: #0a120e;
+  color: #f4f6f5;
+  display: flex;
+  flex-direction: column;
+}
+
+.landing-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24px 40px;
+}
+
+.landing-brand {
+  font-weight: 800;
+  font-size: 1rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.landing-nav {
+  display: flex;
+  gap: 24px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.landing-nav a {
+  color: #8a9a90;
+  text-decoration: none;
+}
+
+.landing-nav a:hover {
+  color: #c8ff3e;
+}
+
+.landing-main {
+  flex: 1;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 24px 40px 48px;
+  width: 100%;
+}
+
+.landing-hero {
+  display: grid;
+  grid-template-columns: 1.15fr 0.85fr;
+  gap: 48px;
+  align-items: start;
+  margin-bottom: 48px;
+}
+
+.landing-hero h1 {
+  font-size: clamp(2rem, 4.5vw, 3rem);
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: -0.03em;
+}
+
+.landing-accent {
+  color: #c8ff3e;
+}
+
+.landing-eyebrow {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #c8ff3e;
+  margin-bottom: 16px;
+}
+
+.landing-lead {
+  font-size: 0.95rem;
+  line-height: 1.7;
+  color: #8a9a90;
+  font-weight: 500;
+}
+
+.landing-features {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 32px;
+  margin-bottom: 40px;
+}
+
+.landing-feat-icon {
+  width: 28px;
+  height: 28px;
+  margin-bottom: 12px;
+  color: #f4f6f5;
+}
+
+.landing-feat-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.landing-feat h3 {
+  font-size: 1rem;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.landing-feat p {
+  font-size: 0.82rem;
+  line-height: 1.6;
+  color: #8a9a90;
+}
+
+.landing-cta {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 40px;
+}
+
+.landing-btn {
+  display: inline-block;
+  padding: 14px 28px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  text-decoration: none;
+  border-radius: 6px;
+}
+
+.landing-btn.primary {
+  background: #c8ff3e;
+  color: #0a120e;
+}
+
+.landing-btn.ghost {
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #f4f6f5;
+}
+
+.landing-btn.ghost:hover {
+  border-color: #c8ff3e;
+  color: #c8ff3e;
+}
+
+.landing-map {
+  width: 100%;
+  max-height: 200px;
+  opacity: 0.9;
+}
+
+.landing-footer {
+  padding: 24px 40px;
+  font-size: 0.75rem;
+  color: #5a6a60;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  text-align: center;
+}
+
+.dashboard-auth-wrap {
+  position: relative;
+  min-height: 100vh;
+}
+
+.landing-back-link {
+  position: absolute;
+  top: 24px;
+  left: 24px;
+  z-index: 10;
+  color: #c8ff3e;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.landing-back-link:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 768px) {
+  .landing-hero {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+
+  .landing-features {
+    grid-template-columns: 1fr;
+  }
+
+  .landing-topbar,
+  .landing-main,
+  .landing-footer {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+}

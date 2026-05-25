@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Canopy — Forest Monitoring</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --forest: #0a120e;
+      --forest-mid: #0f1a14;
+      --forest-card: #141f18;
+      --lime: #c8ff3e;
+      --lime-dim: rgba(200, 255, 62, 0.15);
+      --text: #f4f6f5;
+      --muted: #8a9a90;
+      --dot-idle: #3a4a42;
+      --font: 'Inter', system-ui, sans-serif;
+      --mono: 'JetBrains Mono', monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--font);
+      background: var(--forest);
+      color: var(--text);
+      overflow: hidden;
+    }
+
+    /* Top bar — brand only, no login */
+    .topbar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 200;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 32px;
+      background: linear-gradient(to bottom, var(--forest) 60%, transparent);
+      pointer-events: none;
+    }
+
+    .topbar .brand {
+      font-weight: 800;
+      font-size: 1.1rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text);
+      pointer-events: auto;
+    }
+
+    .deck {
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding-top: 48px;
+    }
+
+    .slide {
+      width: min(94vw, 1200px);
+      aspect-ratio: 16 / 9;
+      max-height: 82vh;
+      background: var(--forest-mid);
+      border: 1px solid rgba(200, 255, 62, 0.08);
+      border-radius: 8px;
+      display: none;
+      flex-direction: column;
+      padding: 48px 52px 40px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .slide.active { display: flex; }
+
+    .slide::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse 80% 50% at 50% 100%, rgba(200, 255, 62, 0.06), transparent 70%);
+      pointer-events: none;
+    }
+
+    .slide > * { position: relative; z-index: 1; }
+
+    /* Ecomflow-style hero split */
+    .hero-split {
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 40px;
+      align-items: start;
+      margin-bottom: 28px;
+    }
+
+    .hero-split h1 {
+      font-size: clamp(1.6rem, 3.2vw, 2.35rem);
+      font-weight: 800;
+      line-height: 1.2;
+      letter-spacing: -0.03em;
+    }
+
+    .hero-split .accent { color: var(--lime); }
+
+    .hero-split .lead {
+      font-size: 0.82rem;
+      line-height: 1.65;
+      color: var(--muted);
+      font-weight: 500;
+    }
+
+    /* 3-column features */
+    .feat-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 28px;
+      margin-bottom: 20px;
+      flex: 0 0 auto;
+    }
+
+    .feat {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .feat-icon {
+      width: 28px;
+      height: 28px;
+      color: var(--text);
+      opacity: 0.9;
+    }
+
+    .feat h3 {
+      font-size: 0.95rem;
+      font-weight: 700;
+    }
+
+    .feat p {
+      font-size: 0.72rem;
+      line-height: 1.55;
+      color: var(--muted);
+      font-weight: 500;
+    }
+
+    /* Dot map */
+    .dot-map-wrap {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      align-items: flex-end;
+      margin: 0 -20px -20px;
+      opacity: 0.95;
+    }
+
+    .dot-map-wrap svg {
+      width: 100%;
+      height: auto;
+      max-height: 140px;
+    }
+
+    .eyebrow {
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--lime);
+      margin-bottom: 10px;
+    }
+
+    .slide-title {
+      font-size: 1.75rem;
+      font-weight: 800;
+      margin-bottom: 20px;
+      letter-spacing: -0.02em;
+    }
+
+    ul.lines {
+      list-style: none;
+      font-size: 0.88rem;
+      line-height: 1.7;
+      color: var(--muted);
+    }
+
+    ul.lines li {
+      padding-left: 1em;
+      position: relative;
+      margin-bottom: 0.35em;
+    }
+
+    ul.lines li::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0.65em;
+      width: 4px;
+      height: 4px;
+      background: var(--lime);
+      border-radius: 50%;
+    }
+
+    ul.lines strong { color: var(--text); font-weight: 600; }
+
+    table {
+      width: 100%;
+      font-size: 0.78rem;
+      border-collapse: collapse;
+    }
+
+    th, td {
+      text-align: left;
+      padding: 10px 12px;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+
+    th {
+      color: var(--lime);
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      font-weight: 700;
+    }
+
+    td { color: var(--muted); }
+    td:first-child { color: var(--text); font-weight: 600; }
+
+    .ok { color: var(--lime) !important; font-weight: 700; }
+    .soon { opacity: 0.5; }
+
+    .formula {
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      background: var(--forest-card);
+      border: 1px solid rgba(200, 255, 62, 0.12);
+      padding: 16px 20px;
+      line-height: 1.75;
+      margin-top: 12px;
+      color: var(--muted);
+    }
+
+    .formula em { color: var(--lime); font-style: normal; }
+
+    .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+
+    .chip {
+      font-size: 0.68rem;
+      font-weight: 700;
+      padding: 6px 12px;
+      background: var(--lime-dim);
+      color: var(--lime);
+      border: 1px solid rgba(200, 255, 62, 0.25);
+    }
+
+    .steps {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      flex: 1;
+    }
+
+    .step {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 12px 16px;
+      background: var(--forest-card);
+      border: 1px solid rgba(255,255,255,0.04);
+      font-size: 0.82rem;
+      font-weight: 600;
+    }
+
+    .step .n {
+      color: var(--lime);
+      font-size: 0.7rem;
+      font-weight: 800;
+      min-width: 1.5rem;
+    }
+
+    .content-body { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+
+    .nav {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      z-index: 200;
+      background: var(--forest-card);
+      border: 1px solid rgba(200, 255, 62, 0.15);
+      padding: 8px 14px;
+      border-radius: 999px;
+    }
+
+    .nav button {
+      font-family: var(--font);
+      background: var(--lime);
+      color: var(--forest);
+      border: none;
+      padding: 8px 16px;
+      font-weight: 700;
+      font-size: 0.78rem;
+      cursor: pointer;
+      border-radius: 6px;
+    }
+
+    .nav button.ghost {
+      background: transparent;
+      color: var(--muted);
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .nav span { font-size: 0.75rem; color: var(--muted); min-width: 3.5rem; text-align: center; }
+
+    @media print {
+      body { overflow: visible; }
+      .topbar, .nav { display: none; }
+      .deck { display: block; height: auto; padding: 0; }
+      .slide {
+        display: flex !important;
+        page-break-after: always;
+        max-height: none;
+        height: 100vh;
+        width: 100%;
+        border: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar" aria-label="Canopy">
+    <span class="brand">Canopy</span>
+  </header>
+
+  <div class="deck" id="deck">
+
+    <!-- 1 Hero (Ecomflow layout) -->
+    <section class="slide active" data-i="0">
+      <div class="hero-split">
+        <div>
+          <p class="eyebrow">Forest monitoring</p>
+          <h1>Scale conservation intelligence across <span class="accent">India’s forest landscapes.</span></h1>
+        </div>
+        <p class="lead">Canopy fuses satellite vegetation signals with acoustic threat detection on one map — built for NGOs, researchers, and government GIS teams. Open source. PostGIS-native. Ready for pilot data.</p>
+      </div>
+      <div class="feat-grid">
+        <div class="feat">
+          <svg class="feat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20 15 15 0 0 1 0-20"/></svg>
+          <h3>Geospatial + acoustic</h3>
+          <p>NDVI ingestion and forest listening units on a single alert model.</p>
+        </div>
+        <div class="feat">
+          <svg class="feat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          <h3>Auditable exports</h3>
+          <p>CSV with fusion provenance for patrols and institutional review.</p>
+        </div>
+        <div class="feat">
+          <svg class="feat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 3-1.9 5.8H4.4l4.8 3.5-1.8 5.7L12 14.3l4.6 3.7-1.8-5.7 4.8-3.5H13.9L12 3z"/></svg>
+          <h3>Pilot-ready MVP</h3>
+          <p>Demo completed — seeking boundaries and NDVI data for India.</p>
+        </div>
+      </div>
+      <div class="dot-map-wrap" id="map-0"></div>
+    </section>
+
+    <!-- 2 Why India -->
+    <section class="slide" data-i="1">
+      <div class="hero-split">
+        <div>
+          <p class="eyebrow">Context</p>
+          <h1>Why this matters for <span class="accent">India.</span></h1>
+        </div>
+        <p class="lead">Patrol capacity is limited across vast reserves. Separate satellite and acoustic tools delay response. Canopy integrates with existing government and NGO GIS — it does not replace them.</p>
+      </div>
+      <div class="feat-grid">
+        <div class="feat">
+          <svg class="feat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+          <h3>Carbon & biodiversity</h3>
+          <p>Forests under pressure from logging, fire, and encroachment.</p>
+        </div>
+        <div class="feat">
+          <svg class="feat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          <h3>Community guardians</h3>
+          <p>Low-bandwidth, location-specific alerts for field teams.</p>
+        </div>
+        <div class="feat">
+          <svg class="feat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+          <h3>NIC & state GIS</h3>
+          <p>Built for geospatial workflows and institutional pilots.</p>
+        </div>
+      </div>
+      <div class="dot-map-wrap" data-map="india"></div>
+    </section>
+
+    <!-- 3 Solution -->
+    <section class="slide" data-i="2">
+      <div class="hero-split">
+        <div>
+          <p class="eyebrow">The solution</p>
+          <h1>Combine what satellites <span class="accent">see</span> with what forests hear.</h1>
+        </div>
+        <p class="lead">Three pipelines — vegetation change, acoustic threats, and spatiotemporal fusion — produce prioritized alerts with linked provenance on export.</p>
+      </div>
+      <div class="feat-grid">
+        <div class="feat">
+          <svg class="feat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a15 15 0 0 1 0 20"/></svg>
+          <h3>Satellite / NDVI</h3>
+          <p>Vegetation loss and canopy change. CSV today; Sentinel & Bhuvan planned.</p>
+        </div>
+        <div class="feat">
+          <svg class="feat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4"/></svg>
+          <h3>Acoustic AI</h3>
+          <p>Chainsaw, gunshot, vehicle, fire crackle — research model in progress.</p>
+        </div>
+        <div class="feat">
+          <svg class="feat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+          <h3>Fused alerts</h3>
+          <p>Space + time scoring. Links acoustic and satellite event IDs.</p>
+        </div>
+      </div>
+      <div class="dot-map-wrap"></div>
+    </section>
+
+    <!-- 4 How it works -->
+    <section class="slide" data-i="3">
+      <p class="eyebrow">Workflow</p>
+      <h2 class="slide-title">How Canopy works</h2>
+      <div class="steps">
+        <div class="step"><span class="n">01</span> Configure regions & geolocated sensors</div>
+        <div class="step"><span class="n">02</span> Upload audio clips → acoustic alerts on map</div>
+        <div class="step"><span class="n">03</span> Ingest NDVI CSV → satellite change events</div>
+        <div class="step"><span class="n">04</span> Run fusion → prioritized fused alerts</div>
+        <div class="step"><span class="n">05</span> Export CSV · alert lifecycle for patrols</div>
+      </div>
+    </section>
+
+    <!-- 5 Gap -->
+    <section class="slide" data-i="4">
+      <div class="hero-split">
+        <div>
+          <p class="eyebrow">Problem</p>
+          <h1>Close the <span class="accent">monitoring gap.</span></h1>
+        </div>
+        <p class="lead"><strong style="color:var(--text)">Opportunity:</strong> Fuse complementary signals with auditable provenance — fewer false positives than single-source monitoring.</p>
+      </div>
+      <div class="feat-grid">
+        <div class="feat">
+          <h3>Satellite-only</h3>
+          <p>Cloud, seasonality, coarse timing — weak for “right now.”</p>
+        </div>
+        <div class="feat">
+          <h3>Acoustic-only</h3>
+          <p>Local signal without landscape context — more false alarms.</p>
+        </div>
+        <div class="feat">
+          <h3>Separate dashboards</h3>
+          <p>No shared lifecycle or field-ready export.</p>
+        </div>
+      </div>
+      <div class="dot-map-wrap"></div>
+    </section>
+
+    <!-- 6 Architecture -->
+    <section class="slide" data-i="5">
+      <p class="eyebrow">Platform</p>
+      <h2 class="slide-title">System architecture</h2>
+      <div class="content-body">
+        <ul class="lines">
+          <li><strong>Field</strong> — Forest Listening Units · audio upload</li>
+          <li><strong>Geospatial</strong> — NDVI pipeline · region boundaries (GIS)</li>
+          <li><strong>Core</strong> — FastAPI → PostgreSQL + PostGIS → fusion engine</li>
+          <li><strong>Dashboard</strong> — React + Leaflet map · metrics · exports</li>
+        </ul>
+      </div>
+      <div class="dot-map-wrap" style="max-height:100px"></div>
+    </section>
+
+    <!-- 7 Geospatial -->
+    <section class="slide" data-i="6">
+      <div class="hero-split">
+        <div>
+          <p class="eyebrow">GIS</p>
+          <h1>Geospatial <span class="accent">foundation.</span></h1>
+        </div>
+        <p class="lead">SRID 4326 throughout. Interoperable with Leaflet, QGIS, and GeoJSON. Organization-scoped tenants for NGOs and departments.</p>
+      </div>
+      <div class="feat-grid">
+        <div class="feat"><h3>Region polygons</h3><p>Optional boundaries stored in PostGIS.</p></div>
+        <div class="feat"><h3>Point alerts</h3><p>Sensors and alerts with spatial indexes.</p></div>
+        <div class="feat"><h3>Bbox queries</h3><p>Filter alerts by map viewport.</p></div>
+      </div>
+      <div class="dot-map-wrap"></div>
+    </section>
+
+    <!-- 8 NDVI -->
+    <section class="slide" data-i="7">
+      <p class="eyebrow">Pipeline</p>
+      <h2 class="slide-title">NDVI → satellite change events</h2>
+      <table>
+        <thead><tr><th>Input</th><th>Output</th></tr></thead>
+        <tbody>
+          <tr><td>CSV: lat/lon, baseline & recent NDVI</td><td>ndvi_delta, severity_score</td></tr>
+          <tr><td>Below loss threshold</td><td>Skipped</td></tr>
+          <tr><td>Valid vegetation loss</td><td>satellite_change_events + provenance</td></tr>
+        </tbody>
+      </table>
+      <div class="formula"><em>ndvi_delta</em> = recent_ndvi − baseline_ndvi · <em>severity</em> = min(|Δ|/0.5, 1)</div>
+    </section>
+
+    <!-- 9 Acoustic -->
+    <section class="slide" data-i="8">
+      <p class="eyebrow">Audio</p>
+      <h2 class="slide-title">Acoustic threat detection</h2>
+      <div class="chips">
+        <span class="chip">chainsaw</span>
+        <span class="chip">gunshot</span>
+        <span class="chip">vehicle</span>
+        <span class="chip">fire_crackle</span>
+        <span class="chip">background</span>
+      </div>
+      <ul class="lines">
+        <li>Research prototype on public + curated datasets</li>
+        <li>MVP uses demo classifier until integration</li>
+        <li>Indian field audio partnership for local soundscapes</li>
+      </ul>
+    </section>
+
+    <!-- 10 Fusion -->
+    <section class="slide" data-i="9">
+      <div class="hero-split">
+        <div>
+          <p class="eyebrow">Core</p>
+          <h1>Spatiotemporal <span class="accent">fusion.</span></h1>
+        </div>
+        <p class="lead">Match acoustic alert to nearest satellite change within 500 m and 14 days (configurable). Scored output in CSV export.</p>
+      </div>
+      <div class="formula">fusion_score = <em>0.45</em>×acoustic + <em>0.35</em>×severity + <em>0.10</em>×confidence + <em>0.10</em>×recurrence</div>
+      <div class="dot-map-wrap"></div>
+    </section>
+
+    <!-- 11 Status -->
+    <section class="slide" data-i="10">
+      <p class="eyebrow">Maturity</p>
+      <h2 class="slide-title">Current status</h2>
+      <table>
+        <thead><tr><th>Component</th><th>Status</th></tr></thead>
+        <tbody>
+          <tr><td>PostGIS, API, org RBAC</td><td class="ok">Working</td></tr>
+          <tr><td>Map dashboard, CSV export</td><td class="ok">Working</td></tr>
+          <tr><td>NDVI CSV → satellite events</td><td class="ok">Working</td></tr>
+          <tr><td>Rule-based fusion</td><td class="ok">Working</td></tr>
+          <tr><td>Live Sentinel / Bhuvan</td><td class="soon">Planned</td></tr>
+          <tr><td>Production acoustic ML</td><td class="soon">Planned</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- 12 Data request -->
+    <section class="slide" data-i="11">
+      <div class="hero-split">
+        <div>
+          <p class="eyebrow">Request</p>
+          <h1>Data for <span class="accent">India pilot.</span></h1>
+        </div>
+        <p class="lead">Sandbox pilot only. Org-scoped storage. No redistribution without permission. Guidance on compliant government data-sharing welcomed.</p>
+      </div>
+      <div class="feat-grid">
+        <div class="feat"><h3>Tier 1</h3><p>Reserve boundaries (GeoJSON/SHP) + NDVI time series.</p></div>
+        <div class="feat"><h3>Tier 2</h3><p>Disturbance / fire history · land cover · sensor sites.</p></div>
+        <div class="feat"><h3>Tier 3</h3><p>Sentinel / Bhuvan feeds · field-labeled audio.</p></div>
+      </div>
+      <div class="dot-map-wrap" data-map="india"></div>
+    </section>
+
+    <!-- 13 Pilot -->
+    <section class="slide" data-i="12">
+      <p class="eyebrow">Pilot</p>
+      <h2 class="slide-title">Proposed 6-month pilot</h2>
+      <ul class="lines">
+        <li><strong>Scope:</strong> One state forest or NGO landscape (10²–10⁴ km²)</li>
+        <li><strong>Months 1–2:</strong> Ingest boundaries + NDVI</li>
+        <li><strong>Months 3–4:</strong> Fusion review with geospatial lead</li>
+        <li><strong>Months 5–6:</strong> Report — precision, fusion uplift, recommendation</li>
+      </ul>
+    </section>
+
+    <!-- 14 Ask -->
+    <section class="slide" data-i="13">
+      <div class="hero-split">
+        <div>
+          <p class="eyebrow">Next steps</p>
+          <h1>Help us move this <span class="accent">forward.</span></h1>
+        </div>
+        <p class="lead">Arjun Tyagi · Penn State · Open source. Thank you for the technical review and support.</p>
+      </div>
+      <ul class="lines" style="margin-top:8px">
+        <li>Endorsement for a limited geospatial data pilot</li>
+        <li>Introduction to forest department / NGO data custodians</li>
+        <li>Guidance on compliant data-sharing under government norms</li>
+      </ul>
+      <div class="dot-map-wrap"></div>
+    </section>
+
+  </div>
+
+  <nav class="nav">
+    <button type="button" class="ghost" id="prev">←</button>
+    <span id="counter">1 / 14</span>
+    <button type="button" id="next">→</button>
+    <button type="button" onclick="window.print()">Export PDF</button>
+  </nav>
+
+  <script>
+    /* Halftone dot world map (Ecomflow-style) */
+    function renderDotMap(container, highlightIndia) {
+      const w = 56, h = 28;
+      const dots = [];
+      const indiaRough = highlightIndia ? (x, y) => x > 34 && x < 48 && y > 8 && y < 22 : () => false;
+      const forestBelt = (x, y) =>
+        (x > 8 && x < 28 && y > 6 && y < 18) ||
+        (x > 30 && x < 50 && y > 4 && y < 24) ||
+        indiaRough(x, y);
+
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          const land = Math.random() > 0.38;
+          if (!land) continue;
+          const hi = forestBelt(x, y);
+          dots.push({ x, y, hi });
+        }
+      }
+
+      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svg.setAttribute('viewBox', `0 0 ${w * 8} ${h * 8}`);
+      svg.setAttribute('preserveAspectRatio', 'xMidYMax meet');
+
+      dots.forEach(({ x, y, hi }) => {
+        const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        c.setAttribute('cx', x * 8 + 4);
+        c.setAttribute('cy', y * 8 + 4);
+        c.setAttribute('r', hi ? 3.2 : 2.2);
+        c.setAttribute('fill', hi ? '#c8ff3e' : '#3a4a42');
+        c.setAttribute('opacity', hi ? 0.95 : 0.5);
+        svg.appendChild(c);
+      });
+
+      container.appendChild(svg);
+    }
+
+    document.querySelectorAll('.dot-map-wrap').forEach((el) => {
+      el.innerHTML = '';
+      renderDotMap(el, el.dataset.map === 'india');
+    });
+
+    const slides = [...document.querySelectorAll('.slide')];
+    let i = 0;
+
+    function show(n) {
+      i = (n + slides.length) % slides.length;
+      slides.forEach((s, j) => s.classList.toggle('active', j === i));
+      document.getElementById('counter').textContent = `${i + 1} / ${slides.length}`;
+    }
+
+    document.getElementById('prev').onclick = () => show(i - 1);
+    document.getElementById('next').onclick = () => show(i + 1);
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); show(i + 1); }
+      if (e.key === 'ArrowLeft') show(i - 1);
+    });
+  </script>
+</body>
+</html>
