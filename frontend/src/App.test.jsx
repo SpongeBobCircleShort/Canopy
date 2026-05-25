@@ -17,9 +17,41 @@ const { apiData, mockMap } = vi.hoisted(() => ({
   },
 }))
 
+vi.mock('./api.js', () => ({
+  fetchHealth: vi.fn(() => Promise.resolve({ status: 'ok' })),
+  fetchMe: vi.fn(() =>
+    Promise.resolve({
+      id: 1,
+      name: 'Admin',
+      email: 'admin@example.org',
+      role: 'admin',
+      org_id: 1,
+      organization: { id: 1, name: 'Demo Org' },
+    }),
+  ),
+  fetchAlerts: vi.fn(() => Promise.resolve(apiData.alerts)),
+  fetchSensors: vi.fn(() => Promise.resolve(apiData.sensors)),
+  fetchRegions: vi.fn(() => Promise.resolve([{ id: 10, name: 'North Sector' }])),
+  fetchSatelliteChanges: vi.fn(() => Promise.resolve(apiData.satelliteChanges)),
+  fetchNdviBatches: vi.fn(() => Promise.resolve([])),
+  fetchInvites: vi.fn(() => Promise.resolve([])),
+  login: vi.fn(),
+  signup: vi.fn(),
+  logout: vi.fn(),
+  createInvite: vi.fn(),
+  revokeInvite: vi.fn(),
+  createRegion: vi.fn(),
+  createSensor: vi.fn(),
+  uploadClip: vi.fn(),
+  createSatelliteChange: vi.fn(),
+  uploadNdviCsv: vi.fn(),
+  runFusion: vi.fn(),
+  updateAlertStatus: vi.fn(),
+  downloadAlertsCsv: vi.fn(),
+}))
+
 afterEach(() => {
   cleanup()
-  vi.unstubAllGlobals()
 })
 
 vi.mock('react-leaflet', () => ({
@@ -31,12 +63,7 @@ vi.mock('react-leaflet', () => ({
   useMapEvents: () => mockMap,
 }))
 
-function jsonResponse(body, status = 200) {
-  return Promise.resolve({ ok: status >= 200 && status < 300, status, json: () => Promise.resolve(body) })
-}
-
 beforeEach(() => {
-  window.history.pushState({}, 'Test page', '/')
   window.localStorage.clear()
   apiData.alerts = []
   apiData.sensors = []
@@ -44,23 +71,6 @@ beforeEach(() => {
   mockMap.fitBounds.mockClear()
   mockMap.getZoom.mockClear()
   mockMap.setView.mockClear()
-  vi.stubGlobal(
-    'fetch',
-    vi.fn((url) => {
-      const path = String(url)
-      if (path.endsWith('/api/health')) return jsonResponse({ status: 'ok', service: 'canopy-api' })
-      if (path.endsWith('/api/auth/me')) {
-        return jsonResponse({ id: 1, name: 'Admin', email: 'admin@example.org', role: 'admin', org_id: 1, organization: { id: 1, name: 'Demo Org' } })
-      }
-      if (path.endsWith('/api/regions')) return jsonResponse([{ id: 10, name: 'North Sector' }])
-      if (path.endsWith('/api/sensors')) return jsonResponse(apiData.sensors)
-      if (path.endsWith('/api/satellite-changes')) return jsonResponse(apiData.satelliteChanges)
-      if (path.endsWith('/api/ndvi/batches')) return jsonResponse([])
-      if (path.includes('/api/organizations/1/invites')) return jsonResponse([])
-      if (path.endsWith('/api/alerts')) return jsonResponse(apiData.alerts)
-      return jsonResponse([])
-    }),
-  )
 })
 
 function renderAt(path) {
@@ -72,7 +82,7 @@ function renderAt(path) {
 }
 
 describe('App', () => {
-  it('renders the public landing page at /', async () => {
+  it('renders the public landing page at /', () => {
     renderAt('/')
 
     expect(screen.getByText(/Scale conservation intelligence/i)).toBeInTheDocument()
@@ -142,9 +152,18 @@ describe('App', () => {
   it('auto-fits the map to available markers', async () => {
     window.localStorage.setItem('canopy_token', 'demo-token')
     apiData.sensors = [{ id: 1, name: 'North Sensor', status: 'active', location: { lat: 21.1, lon: 78.2 } }]
-    apiData.alerts = [{ id: 2, type: 'audio', status: 'open', priority: 'high', description: 'Audio alert', location: { lat: 22.3, lon: 79.4 } }]
+    apiData.alerts = [
+      {
+        id: 2,
+        type: 'audio',
+        status: 'open',
+        priority: 'high',
+        description: 'Audio alert',
+        location: { lat: 22.3, lon: 79.4 },
+      },
+    ]
 
-    render(<App />)
+    renderAt('/app')
 
     await screen.findByRole('heading', { name: /Global Overview/i })
     await waitFor(() => {
