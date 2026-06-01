@@ -1,4 +1,4 @@
-model_version: threat-cnn-kaggle-balanced-v3-bg
+model_version: threat-cnn-expanded-v6-bg-conservative
 labels:
   - chainsaw
   - gunshot
@@ -16,21 +16,24 @@ training:
   batch_size: 16
   epochs: 18
   learning_rate: 0.001
-  seed: 47
+  seed: 51
   device: auto
   class_weighting: false
   weighted_sampler: true
   sampler_weight_power: 0.75
   sampler_label_multiplier_mode: multiply
   sampler_label_multipliers:
-    background_unknown: 2.5
+    background_unknown: 3.25
+    chainsaw: 2.5
+    gunshot: 2.5
+    fire_crackle: 2.5
   sampler_source_multipliers:
     hard_negative: 6.0
-    fsc22: 1.25
-    kaggle_vehicle_type: 0.75
-    kaggle_gunshot: 0.85
-    kaggle_chainsaw_rainforest: 0.7
-    kaggle_forest_wildfire: 0.85
+    dcase_machine: 3.0
+    fsc22: 1.5
+    urbansound8k: 1.4
+    esc50: 1.0
+    fsd50k: 1.0
   checkpoint_each_epoch: true
   scheduler: none
   progress_log_interval: 100
@@ -39,21 +42,21 @@ loss:
 evaluation:
   threshold_step: 0.05
   min_precision:
-    chainsaw: 0.5
-    gunshot: 0.7
-    vehicle: 0.55
-    fire_crackle: 0.5
+    chainsaw: 0.6
+    gunshot: 0.8
+    vehicle: 0.7
+    fire_crackle: 0.65
     background_unknown: 0.8
   max_background_fp_rate:
-    chainsaw: 0.03
-    gunshot: 0.02
-    vehicle: 0.03
+    chainsaw: 0.02
+    gunshot: 0.015
+    vehicle: 0.025
     fire_crackle: 0.02
   selection:
     background_false_positive_penalty: 2.0
     min_recall:
-      chainsaw: 0.5
-      gunshot: 0.65
+      chainsaw: 0.45
+      gunshot: 0.55
       vehicle: 0.35
       fire_crackle: 0.45
 augmentation:
@@ -65,5 +68,5 @@ augmentation:
   max_time_mask_frames: 12
   max_freq_mask_bins: 8
 paths:
-  manifest: data/audio/manifests/threat_manifest_kaggle_balanced_v2_fsc22.csv
-  artifact_dir: models/audio/threat_cnn_kaggle_balanced_v3_bg
+  manifest: data/audio/manifests/threat_manifest_expanded_v6_bg_conservative.csv
+  artifact_dir: models/audio/threat_cnn_expanded_v6_bg_conservative

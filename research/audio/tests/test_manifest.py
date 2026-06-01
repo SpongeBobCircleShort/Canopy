@@ -21,9 +21,19 @@ from research.audio.import_kaggle_gunshot import build_kaggle_gunshot_rows, writ
 from research.audio.import_kaggle_vehicle import build_kaggle_vehicle_rows, write_kaggle_vehicle_manifest
 from research.audio.manifest import MANIFEST_COLUMNS, ManifestRow, read_manifest, validate_manifest_rows, write_manifest
 from research.audio.mine_hard_negatives import hard_negative_from_prediction
+from research.audio.download_fsd50k_hard_negatives import (
+    _is_hard_negative_labels,
+    select_fsd50k_hard_negative_candidates,
+)
+from research.audio.import_dcase_machine_sounds import (
+    build_dcase_machine_rows,
+    dcase_machine_summary,
+    write_dcase_machine_manifest,
+)
 from research.audio.prepare_manifest import (
     _canonical_fsd50k_label,
     _rows_from_dcase2017_task2,
+    _rows_from_esc50,
     _rows_from_fsd50k,
     _rows_from_rfcx_frugalai,
     _rows_from_zenodo_gunshot,
@@ -192,6 +202,88 @@ def test_fsd50k_label_mapping_is_conservative() -> None:
     assert _canonical_fsd50k_label(["Fire"]) == "fire_crackle"
     assert _canonical_fsd50k_label(["Truck"]) == "vehicle"
     assert _canonical_fsd50k_label(["Speech", "Music"]) == "background_unknown"
+    assert _canonical_fsd50k_label(["Engine"]) == "background_unknown"
+    assert _canonical_fsd50k_label(["Drill", "Tools"]) == "background_unknown"
+
+
+def test_esc50_hand_saw_maps_to_background(tmp_path: Path) -> None:
+    root = tmp_path / "ESC-50"
+    audio_dir = root / "audio"
+    audio_dir.mkdir(parents=True)
+    (audio_dir / "1-10001-A-0.wav").write_bytes(b"not-real-audio")
+    meta_dir = root / "meta"
+    meta_dir.mkdir()
+    (meta_dir / "esc50.csv").write_text(
+        "filename,fold,target,category,esc10,src_file,take\n"
+        "1-10001-A-0.wav,1,0,hand_saw,0,10001,0\n"
+    )
+    rows = _rows_from_esc50(root)
+    assert len(rows) == 1
+    assert rows[0].label == "background_unknown"
+    assert "esc50_category=hand_saw" in rows[0].notes
+
+
+def test_dcase_machine_importer_builds_train_only_hard_negatives(tmp_path: Path) -> None:
+    root = tmp_path / "DCASE2020Task2"
+    fan_train = root / "dev_data" / "fan" / "train"
+    fan_test = root / "dev_data" / "fan" / "test"
+    pump_train = root / "dev_data" / "pump" / "train"
+    fan_train.mkdir(parents=True)
+    fan_test.mkdir(parents=True)
+    pump_train.mkdir(parents=True)
+    (fan_train / "normal_id_00_00000000.wav").write_bytes(b"not-real-audio")
+    (fan_test / "normal_id_00_00000001.wav").write_bytes(b"not-real-audio")
+    (fan_test / "anomaly_id_00_00000002.wav").write_bytes(b"not-real-audio")
+    (pump_train / "normal_id_01_00000000.wav").write_bytes(b"not-real-audio")
+
+    rows = build_dcase_machine_rows(root, machines=["fan", "pump"])
+
+    assert len(rows) == 2
+    assert {row.label for row in rows} == {"background_unknown"}
+    assert {row.split for row in rows} == {"train"}
+    assert {row.source for row in rows} == {"dcase_machine"}
+    assert dcase_machine_summary(rows) == {"fan": 1, "pump": 1}
+    assert all("hard_negative=true" in row.notes for row in rows)
+    assert all("dcase_subset=train" in row.notes for row in rows)
+
+
+def test_dcase_machine_importer_can_include_test_normal_and_cap(tmp_path: Path) -> None:
+    root = tmp_path / "DCASE2020Task2" / "dev_data" / "fan"
+    train = root / "train"
+    test = root / "test"
+    train.mkdir(parents=True)
+    test.mkdir()
+    for index in range(3):
+        (train / f"normal_id_00_{index:08d}.wav").write_bytes(b"not-real-audio")
+    (test / "normal_id_00_00000003.wav").write_bytes(b"not-real-audio")
+    (test / "anomaly_id_00_00000004.wav").write_bytes(b"not-real-audio")
+
+    rows = build_dcase_machine_rows(
+        root.parents[1],
+        machines=["fan"],
+        include_test_normal=True,
+        max_per_machine=2,
+        seed=1,
+    )
+
+    assert len(rows) == 2
+    assert all("condition=normal" in row.notes for row in rows)
+    assert all("machine_type=fan" in row.notes for row in rows)
+
+
+def test_dcase_machine_manifest_round_trip(tmp_path: Path) -> None:
+    root = tmp_path / "DCASE2020Task2" / "dev_data" / "valve" / "train"
+    root.mkdir(parents=True)
+    (root / "normal_id_06_00000000.wav").write_bytes(b"not-real-audio")
+    manifest_path = tmp_path / "dcase_manifest.csv"
+
+    rows = write_dcase_machine_manifest(tmp_path / "DCASE2020Task2", manifest_path, machines=["valve"])
+    loaded = read_manifest(manifest_path)
+
+    assert len(rows) == 1
+    assert loaded[0]["label"] == "background_unknown"
+    assert loaded[0]["source"] == "dcase_machine"
+    assert "machine_id=06" in loaded[0]["notes"]
 
 
 def test_fsd50k_rows_from_local_metadata(tmp_path: Path) -> None:
@@ -840,6 +932,21 @@ def test_manifest_report_flags_low_test_support(tmp_path: Path) -> None:
     assert "chainsaw has 1 test rows" in report["validation"]["failures"][0]
     assert report["validation"]["collection_targets"]["chainsaw"]["additional_verified_test_rows_needed"] == 49
     assert build_manifest_report(manifest_path, min_test_support=50, experimental=True)["validation"]["passed"] is True
+
+
+def test_fsd50k_hard_negative_selector_skips_threat_labels(tmp_path: Path) -> None:
+    metadata = tmp_path / "dev.csv"
+    metadata.write_text(
+        "fname,labels,split\n"
+        "100.wav,\"Engine,Idling\",train\n"
+        "101.wav,\"Sawing,Tools\",train\n"
+        "102.wav,\"Gunshot_and_gunfire\",train\n"
+    )
+    selected = select_fsd50k_hard_negative_candidates(metadata, target_rows=10, metadata_split="train")
+    assert len(selected) == 1
+    assert selected[0]["fname"] == "100.wav"
+    assert _is_hard_negative_labels(["Engine", "Idling"])
+    assert not _is_hard_negative_labels(["Sawing", "Tools"])
 
 
 def test_fsc22_importer_maps_negatives_and_skips_threat_classes(tmp_path: Path) -> None:

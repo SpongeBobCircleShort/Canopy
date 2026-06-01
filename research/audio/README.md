@@ -119,6 +119,59 @@ Optional flags:
 
 Negatives-only import yields about **1,500** rows (18 background classes + 2 vehicle classes × 75 clips). Merge into a training manifest after review; do not add unreviewed FSC22 rows to test.
 
+### Expanded manifest v5 (ESC-50 + UrbanSound8K + FSD50K + hard negatives + FSC22)
+
+Recommended path to reduce chainsaw false alarms without Kaggle threat skew:
+
+1. **ESC-50** now imports `hand_saw` as `background_unknown` (hard negative for chainsaw confusion).
+2. **UrbanSound8K** adds drilling/jackhammer/engine-idling negatives when `--urbansound8k-root` is present.
+3. **FSD50K** maps engine/weather/tool tags to `background_unknown` in `prepare_manifest.py`.
+4. **DCASE 2020 machine sounds** can add fan/pump/slider/valve hard negatives for vehicle-like mechanical hums.
+5. **FSC22** train-only negatives merged after the base manifest is built.
+
+For vehicle false positives on machine-like background, import the DCASE 2020 Task 2 real-machine sounds as train-only `background_unknown` rows. The default machine set is `fan`, `pump`, `slider`, and `valve`; this avoids the larger toy-car/toy-conveyor files unless explicitly requested.
+
+```bash
+python -m research.audio.import_dcase_machine_sounds \
+  --download \
+  --root data/audio/raw/DCASE2020Task2 \
+  --output data/audio/manifests/dcase2020_machine_negatives_manifest.csv \
+  --curation-output data/audio/curation/dcase2020_machine_negatives.csv \
+  --max-per-machine 500
+```
+
+The importer reads `dev_data/<machine>/train/normal_id_*.wav` and writes `source=dcase_machine`, `label=background_unknown`, `split=train`. Pass repeated `--machine` flags to change the set, for example `--machine fan --machine pump`. The v5 manifest builder automatically includes `data/audio/manifests/dcase2020_machine_negatives_manifest.csv` when it exists.
+
+```bash
+# Optional: download FSD50K engine/tool/weather hard negatives (train only)
+python -m research.audio.download_fsd50k_hard_negatives \
+  --fsd50k-root data/audio/raw/FSD50K \
+  --target-rows 200 \
+  --dry-run
+
+# Optional: refresh hard negatives from the current best model
+python -m research.audio.mine_hard_negatives \
+  --model models/audio/threat_cnn_expanded_hn_v3 \
+  --manifest data/audio/manifests/threat_manifest_expanded_hn_v4.csv \
+  --output data/audio/manifests/hard_negatives_v5_mined.csv \
+  --split val
+
+python -m research.audio.build_threat_manifest_v5 \
+  --esc50-root data/audio/raw/ESC-50-master \
+  --urbansound8k-root data/audio/raw/UrbanSound8K \
+  --fsd50k-root data/audio/raw/FSD50K \
+  --hard-negative-manifest data/audio/manifests/hard_negatives_expanded_hn_v4.csv \
+  --hard-negative-manifest data/audio/manifests/hard_negatives_v5_mined.csv \
+  --output data/audio/manifests/threat_manifest_expanded_v5.csv
+
+python -m research.audio.train \
+  --manifest data/audio/manifests/threat_manifest_expanded_v5.csv \
+  --config research/audio/config_cnn_expanded_v5_hn.yaml \
+  --artifact-dir models/audio/threat_cnn_expanded_v5_hn
+```
+
+After rebuilding ESC-50 rows, `hand_saw` clips appear as `background_unknown` with `esc50_category=hand_saw` in notes.
+
 ### Kaggle-balanced manifest (train-only augmentation)
 
 When the full Kaggle vehicle corpus would dominate training, build a capped manifest on top of `threat_manifest_expanded_hn_v4.csv`:

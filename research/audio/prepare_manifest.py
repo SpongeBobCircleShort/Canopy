@@ -41,6 +41,7 @@ ESC50_BACKGROUND_CLASSES = {
     "can_opening",
     "washing_machine",
     "vacuum_cleaner",
+    "hand_saw",
 }
 
 URBANSOUND8K_CLASS_MAP = {
@@ -78,6 +79,18 @@ FSD50K_LABEL_MAP = {
     "car_horn": "vehicle",
     "bus": "vehicle",
     "vehicle_horn_car_horn_honking": "vehicle",
+    "engine": "background_unknown",
+    "idling": "background_unknown",
+    "wind": "background_unknown",
+    "rain": "background_unknown",
+    "thunder": "background_unknown",
+    "thunderstorm": "background_unknown",
+    "drill": "background_unknown",
+    "tools": "background_unknown",
+    "mechanical_fan": "background_unknown",
+    "mechanisms": "background_unknown",
+    "hiss": "background_unknown",
+    "water": "background_unknown",
 }
 
 RFCX_FRUGALAI_LABEL_MAP = {
