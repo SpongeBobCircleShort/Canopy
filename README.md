@@ -181,7 +181,7 @@ The created fused alert stores provenance in `metadata`: `acoustic_alert_id`, `s
 1. Open <http://localhost:5173> and sign up or log in.
 2. Create a region.
 3. Create a sensor in or near that region.
-4. Upload a demo audio file named `chainsaw.wav` to generate an acoustic alert from the placeholder classifier.
+4. Upload a demo audio file. If `AUDIO_MODEL_PATH` is configured, the trained audio model classifies the clip; otherwise the demo filename fallback labels `chainsaw.wav` as a chainsaw alert.
 5. Use the **Manual satellite change** panel to create a nearby `canopy_loss`, `ndvi_drop`, or other stub satellite-change event.
 6. Click **Run Fusion** as an admin.
 7. Inspect the fused alert in the alert list and map. Fused alerts display `fusion_score`, `acoustic_alert_id`, and `satellite_change_id`.
@@ -291,7 +291,7 @@ scripts/demo_mvp_flow.sh
 2. Sign up or log in.
 3. Create a region.
 4. Create a sensor in that region.
-5. Upload a small audio clip named `chainsaw.wav` to create an acoustic alert through the placeholder classifier.
+5. Upload a small audio clip. If `AUDIO_MODEL_PATH` is configured, the trained audio model classifies the clip; otherwise the demo filename fallback labels `chainsaw.wav` as a chainsaw alert.
 6. Create a manual satellite-change event near the sensor.
 7. Click **Run Fusion**.
 8. Confirm the fused alert appears on the map and in the alert list with `fusion_score`, `acoustic_alert_id`, and `satellite_change_id`.
@@ -307,9 +307,8 @@ When browser automation or screenshot tooling is available, save evidence under 
 ### Known limitations
 
 - Satellite-change events are manual/stubbed for the MVP.
-- The audio classifier is a deterministic placeholder based on file names.
+- The audio classifier uses a trained artifact when `AUDIO_MODEL_PATH` is configured; otherwise it uses the deterministic filename fallback for lightweight demos.
 - Real Sentinel/NDVI processing is deferred.
-- Real ML classification is deferred.
 
 ### Current validation status in this environment
 

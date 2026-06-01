@@ -11,38 +11,116 @@ from research.audio.model import build_model, model_config_from_checkpoint
 
 
 def infer(model_dir: Path, audio_path: Path) -> dict:
-    torch = _torch()
-    config = load_config(model_dir / "config.yaml")
-    checkpoint = torch.load(model_dir / "model.pt", map_location="cpu", weights_only=False)
-    labels = json.loads((model_dir / "labels.json").read_text()) if (model_dir / "labels.json").exists() else LABELS
+    return AudioInferenceService(model_dir).predict(audio_path)
 
-    model = build_model(len(labels), model_config=model_config_from_checkpoint(checkpoint, config.get("model", {})))
-    model.load_state_dict(checkpoint["state_dict"])
-    model.eval()
 
-    if _feature_type(config.get("model", {})) == "waveform":
-        features = load_waveform_feature(
+class AudioInferenceService:
+    def __init__(self, model_dir: Path) -> None:
+        self.model_dir = Path(model_dir)
+        self.torch = _torch()
+        self.config = load_config(self.model_dir / "config.yaml")
+        self.checkpoint = self.torch.load(self.model_dir / "model.pt", map_location="cpu", weights_only=False)
+        self.labels = (
+            json.loads((self.model_dir / "labels.json").read_text())
+            if (self.model_dir / "labels.json").exists()
+            else self.checkpoint.get("artifact", {}).get("labels", LABELS)
+        )
+        self.model_config = model_config_from_checkpoint(self.checkpoint, self.config.get("model", {}))
+        self.model = build_model(len(self.labels), model_config=self.model_config)
+        self.model.load_state_dict(self.checkpoint["state_dict"])
+        self.model.eval()
+        self.thresholds = _load_thresholds(self.model_dir)
+        self.background_label = "background_unknown" if "background_unknown" in self.labels else self.labels[-1]
+
+    def predict(self, audio_path: Path) -> dict:
+        features = self._features(audio_path)
+        with self.torch.no_grad():
+            probabilities = self.torch.softmax(self.model(features), dim=1)[0]
+        score_map = {label: float(probabilities[index].item()) for index, label in enumerate(self.labels)}
+        label = _thresholded_label(score_map, self.thresholds, default_label=self.background_label)
+        raw_label = max(score_map, key=score_map.get)
+        return {
+            "label": label,
+            "confidence": score_map[label],
+            "model_version": self.checkpoint.get("artifact", {}).get(
+                "model_version", self.config.get("model_version", "threat-cnn-v0")
+            ),
+            "scores": score_map,
+            "raw_label": raw_label,
+        }
+
+    def _features(self, audio_path: Path):
+        if _feature_type(self.model_config) == "waveform":
+            return load_waveform_feature(
+                audio_path,
+                sample_rate=int(self.config["audio"]["sample_rate"]),
+                clip_seconds=float(self.config["audio"]["clip_seconds"]),
+            ).unsqueeze(0)
+        return load_log_mel(
             audio_path,
-            sample_rate=int(config["audio"]["sample_rate"]),
-            clip_seconds=float(config["audio"]["clip_seconds"]),
+            sample_rate=int(self.config["audio"]["sample_rate"]),
+            clip_seconds=float(self.config["audio"]["clip_seconds"]),
+            n_mels=int(self.config["audio"]["n_mels"]),
         ).unsqueeze(0)
-    else:
-        features = load_log_mel(
-            audio_path,
-            sample_rate=int(config["audio"]["sample_rate"]),
-            clip_seconds=float(config["audio"]["clip_seconds"]),
-            n_mels=int(config["audio"]["n_mels"]),
-        ).unsqueeze(0)
-    with torch.no_grad():
-        probabilities = torch.softmax(model(features), dim=1)[0]
-    score_map = {label: float(probabilities[index].item()) for index, label in enumerate(labels)}
-    label = max(score_map, key=score_map.get)
-    return {
-        "label": label,
-        "confidence": score_map[label],
-        "model_version": checkpoint.get("artifact", {}).get("model_version", config.get("model_version", "threat-cnn-v0")),
-        "scores": score_map,
-    }
+
+
+def _load_thresholds(model_dir: Path) -> dict[str, float]:
+    deployment_thresholds = _load_deployment_thresholds(model_dir / "deployment_thresholds.json")
+    if deployment_thresholds:
+        return deployment_thresholds
+    metrics_path = model_dir / "val_metrics.json"
+    if not metrics_path.exists():
+        metrics_path = model_dir / "metrics.json"
+    if not metrics_path.exists():
+        return {}
+    try:
+        metrics = json.loads(metrics_path.read_text())
+    except json.JSONDecodeError:
+        return {}
+    if "validation" in metrics:
+        metrics = metrics["validation"]
+    recommendations = metrics.get("threshold_recommendations", {})
+    thresholds = {}
+    for label, recommendation in recommendations.items():
+        if isinstance(recommendation, dict):
+            value = recommendation.get("threshold")
+        else:
+            value = recommendation
+        try:
+            thresholds[label] = float(value)
+        except (TypeError, ValueError):
+            continue
+    return thresholds
+
+
+def _load_deployment_thresholds(path: Path) -> dict[str, float]:
+    if not path.exists():
+        return {}
+    try:
+        artifact = json.loads(path.read_text())
+    except json.JSONDecodeError:
+        return {}
+    raw_thresholds = artifact.get("thresholds", artifact) if isinstance(artifact, dict) else {}
+    thresholds = {}
+    for label, value in raw_thresholds.items():
+        try:
+            thresholds[label] = float(value)
+        except (TypeError, ValueError):
+            continue
+    return thresholds
+
+
+def _thresholded_label(score_map: dict[str, float], thresholds: dict[str, float], *, default_label: str) -> str:
+    if not thresholds:
+        return max(score_map, key=score_map.get)
+    passing = [
+        (label, score)
+        for label, score in score_map.items()
+        if score >= thresholds.get(label, 0.5)
+    ]
+    if passing:
+        return max(passing, key=lambda item: item[1])[0]
+    return default_label
 
 
 def _torch():

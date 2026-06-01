@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import csv
 import random
+import ssl
 import time
 import urllib.error
 import urllib.request
@@ -15,6 +16,7 @@ from research.audio.manifest import read_manifest
 TARGET_LABEL_TERMS = {
     "chainsaw": {"Chainsaw", "Sawing", "Power_tool"},
     "gunshot": {"Gunshot_and_gunfire"},
+    "vehicle": {"Vehicle", "Motor_vehicle_(road)", "Motor_vehicle", "Truck", "Car", "Bus", "Vehicle_horn_and_car_horn_and_honking"},
     "fire_crackle": {"Fire", "Crackle"},
 }
 
@@ -106,6 +108,7 @@ def download_selected_candidates(
     hf_split: str,
     retries: int = 3,
     sleep_seconds: float = 1.0,
+    insecure: bool = False,
 ) -> list[Path]:
     output_dir = output_root / f"FSD50K.{hf_split}_audio"
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -119,7 +122,7 @@ def download_selected_candidates(
                 downloaded.append(output_path)
                 continue
             url = f"{hf_base_url.rstrip('/')}/{hf_split}/{fname}.wav?download=true"
-            _download_file(url, output_path, retries=retries, sleep_seconds=sleep_seconds)
+            _download_file(url, output_path, retries=retries, sleep_seconds=sleep_seconds, insecure=insecure)
             downloaded.append(output_path)
             print(f"downloaded label={label} fname={fname} path={output_path}", flush=True)
     return downloaded
@@ -186,13 +189,14 @@ def write_split_overrides(
         writer.writerows(existing[fname] for fname in sorted(existing, key=lambda value: (existing[value]["split"], existing[value]["label"], value)))
 
 
-def _download_file(url: str, output_path: Path, *, retries: int, sleep_seconds: float) -> None:
+def _download_file(url: str, output_path: Path, *, retries: int, sleep_seconds: float, insecure: bool = False) -> None:
     tmp_path = output_path.with_suffix(output_path.suffix + ".tmp")
     request = urllib.request.Request(url, headers={"User-Agent": "canopy-audio-data-prep/1.0"})
+    context = ssl._create_unverified_context() if insecure else None
     last_error: Exception | None = None
     for attempt in range(1, retries + 1):
         try:
-            with urllib.request.urlopen(request, timeout=120) as response, tmp_path.open("wb") as handle:
+            with urllib.request.urlopen(request, timeout=120, context=context) as response, tmp_path.open("wb") as handle:
                 while True:
                     chunk = response.read(1024 * 1024)
                     if not chunk:
@@ -247,6 +251,7 @@ def main() -> None:
     parser.add_argument("--metadata-split", choices=["train", "val", "test"], help="Only select records from this FSD50K metadata split.")
     parser.add_argument("--allow-reselect", action="store_true", help="Allow selecting files already present in the split override sidecar.")
     parser.add_argument("--selection-input", type=Path, help="Download an existing curation/split selection CSV instead of selecting new rows.")
+    parser.add_argument("--insecure", action="store_true", help="Disable TLS certificate verification for clip downloads.")
     args = parser.parse_args()
 
     labels = [label for label in args.labels if label in LABELS]
@@ -300,6 +305,7 @@ def main() -> None:
         output_root=args.fsd50k_root,
         hf_base_url=args.hf_base_url,
         hf_split=args.hf_split,
+        insecure=args.insecure,
     )
 
 

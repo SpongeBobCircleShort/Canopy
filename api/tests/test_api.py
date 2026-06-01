@@ -5,6 +5,8 @@ import os
 from io import StringIO
 from pathlib import Path
 
+import pytest
+
 os.environ["DATABASE_URL"] = "sqlite:///./test-canopy.db"
 os.environ["JWT_SECRET"] = "test-secret"
 os.environ["AUDIO_STORAGE_PATH"] = "./test-audio"
@@ -282,6 +284,46 @@ def test_upload_clip_uses_classifier_service_and_generates_sensor_alert() -> Non
         assert body["generated_alert"]["sensor_id"] == sensor["id"]
         assert body["generated_alert"]["classifier_label"] == "chainsaw"
         assert body["generated_alert"]["location"] == sensor["location"]
+
+
+def test_upload_clip_uses_configured_audio_model(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.services import audio_classifier
+
+    class FakeAudioModel:
+        def predict(self, file_path: Path) -> dict:
+            return {
+                "label": "gunshot",
+                "confidence": 0.91,
+                "model_version": "unit-model-v1",
+                "scores": {"gunshot": 0.91, "background_unknown": 0.09},
+            }
+
+    monkeypatch.setenv("AUDIO_MODEL_PATH", "/tmp/fake-canopy-model")
+    get_settings.cache_clear()
+    audio_classifier._model_service.cache_clear()
+    monkeypatch.setattr(audio_classifier, "_model_service", lambda model_dir: FakeAudioModel())
+
+    try:
+        _reset_test_database()
+        with TestClient(app) as client:
+            token = _signup(client)
+            sensor = _create_sensor(client, token, name="FLU-AUDIO", lat=-4.0, lon=-61.0)
+
+            response = client.post(
+                "/api/clips/upload",
+                headers=_auth_header(token),
+                data={"sensor_id": str(sensor["id"])},
+                files={"file": ("field.wav", b"RIFF....WAVE", "audio/wav")},
+            )
+
+        assert response.status_code == 201
+        body = response.json()
+        assert body["classifier_label"] == "gunshot"
+        assert body["classifier_confidence"] == 0.91
+        assert body["classifier_model_version"] == "unit-model-v1"
+        assert body["generated_alert"]["priority"] == "high"
+    finally:
+        get_settings.cache_clear()
 
 
 def test_e2e_org_scoped_mvp_flow() -> None:

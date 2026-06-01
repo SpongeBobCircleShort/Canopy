@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+psycopg://canopy_user:canopy_password@localhost:5432/canopy"
     jwt_secret: str = "change-me-in-production"
     audio_storage_path: str = "/tmp/canopy-audio"
+    audio_model_path: str | None = None
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

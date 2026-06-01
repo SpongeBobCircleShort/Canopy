@@ -1,0 +1,67 @@
+model_version: threat-cnn-expanded-hn-v4
+labels:
+  - chainsaw
+  - gunshot
+  - vehicle
+  - fire_crackle
+  - background_unknown
+model:
+  architecture: cnn
+  dropout: 0.1
+audio:
+  sample_rate: 16000
+  clip_seconds: 4.0
+  n_mels: 64
+training:
+  batch_size: 16
+  epochs: 16
+  learning_rate: 0.001
+  seed: 43
+  device: auto
+  class_weighting: false
+  weighted_sampler: true
+  sampler_weight_power: 0.75
+  sampler_label_multipliers:
+    chainsaw: 8.0
+    gunshot: 5.0
+    vehicle: 3.0
+    fire_crackle: 8.0
+    background_unknown: 2.0
+  sampler_source_multipliers:
+    fsd50k: 1.0
+    hard_negative: 4.0
+  checkpoint_each_epoch: true
+  scheduler: none
+loss:
+  name: cross_entropy
+evaluation:
+  threshold_step: 0.05
+  min_precision:
+    chainsaw: 0.55
+    gunshot: 0.75
+    vehicle: 0.6
+    fire_crackle: 0.6
+    background_unknown: 0.8
+  max_background_fp_rate:
+    chainsaw: 0.03
+    gunshot: 0.02
+    vehicle: 0.04
+    fire_crackle: 0.03
+  selection:
+    background_false_positive_penalty: 1.2
+    min_recall:
+      chainsaw: 0.55
+      gunshot: 0.55
+      vehicle: 0.45
+      fire_crackle: 0.55
+augmentation:
+  enabled: true
+  gain_min: 0.8
+  gain_max: 1.2
+  noise_std: 0.003
+  max_shift_fraction: 0.08
+  max_time_mask_frames: 12
+  max_freq_mask_bins: 8
+paths:
+  manifest: data/audio/manifests/threat_manifest_expanded_hn_v4.csv
+  artifact_dir: models/audio/threat_cnn_expanded_hn_v4

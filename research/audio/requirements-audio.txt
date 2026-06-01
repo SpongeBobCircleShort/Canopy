@@ -8,3 +8,4 @@ tqdm>=4.66,<5
 PyYAML>=6.0,<7
 soundfile>=0.13,<1
 datasets>=4.8,<5
+kagglehub>=0.4,<1

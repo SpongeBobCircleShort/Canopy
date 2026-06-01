@@ -91,6 +91,7 @@ def train(manifest: Path, config_path: Path | None, artifact_dir: Path | None = 
             torch,
             power=float(config["training"].get("sampler_weight_power", 1.0)),
             label_multipliers=config["training"].get("sampler_label_multipliers"),
+            label_multiplier_mode=str(config["training"].get("sampler_label_multiplier_mode", "override")),
             source_multipliers=config["training"].get("sampler_source_multipliers"),
         )
         if config["training"].get("weighted_sampler", False)
@@ -235,16 +236,19 @@ def _weighted_sampler(
     *,
     power: float,
     label_multipliers: dict | None,
+    label_multiplier_mode: str = "override",
     source_multipliers: dict | None = None,
 ):
     label_to_index = {label: index for index, label in enumerate(LABELS)}
     source_multipliers = source_multipliers or {}
     sample_weights = []
     for row in rows:
-        if label_multipliers:
+        inverse_frequency_weight = float(class_weights[label_to_index[row["label"]]] ** power)
+        if label_multipliers and label_multiplier_mode != "multiply":
             label_weight = float(label_multipliers.get(row["label"], 1.0))
         else:
-            label_weight = float(class_weights[label_to_index[row["label"]]] ** power)
+            label_multiplier = float((label_multipliers or {}).get(row["label"], 1.0))
+            label_weight = inverse_frequency_weight * label_multiplier
         source_weight = float(source_multipliers.get(row.get("source", ""), 1.0))
         sample_weights.append(label_weight * source_weight)
     return torch.utils.data.WeightedRandomSampler(sample_weights, num_samples=len(sample_weights), replacement=True)

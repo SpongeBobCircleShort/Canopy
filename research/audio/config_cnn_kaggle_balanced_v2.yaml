@@ -1,0 +1,68 @@
+model_version: threat-cnn-kaggle-balanced-v2
+labels:
+  - chainsaw
+  - gunshot
+  - vehicle
+  - fire_crackle
+  - background_unknown
+model:
+  architecture: cnn
+  dropout: 0.1
+audio:
+  sample_rate: 16000
+  clip_seconds: 4.0
+  n_mels: 64
+training:
+  batch_size: 16
+  epochs: 18
+  learning_rate: 0.001
+  seed: 46
+  device: auto
+  class_weighting: false
+  weighted_sampler: true
+  sampler_weight_power: 0.75
+  sampler_label_multiplier_mode: multiply
+  sampler_label_multipliers:
+    background_unknown: 1.8
+  sampler_source_multipliers:
+    hard_negative: 5.0
+    kaggle_vehicle_type: 0.75
+    kaggle_gunshot: 0.85
+    kaggle_chainsaw_rainforest: 0.85
+    kaggle_forest_wildfire: 0.85
+  checkpoint_each_epoch: true
+  scheduler: none
+  progress_log_interval: 100
+loss:
+  name: cross_entropy
+evaluation:
+  threshold_step: 0.05
+  min_precision:
+    chainsaw: 0.5
+    gunshot: 0.7
+    vehicle: 0.55
+    fire_crackle: 0.5
+    background_unknown: 0.8
+  max_background_fp_rate:
+    chainsaw: 0.03
+    gunshot: 0.02
+    vehicle: 0.03
+    fire_crackle: 0.02
+  selection:
+    background_false_positive_penalty: 1.5
+    min_recall:
+      chainsaw: 0.5
+      gunshot: 0.65
+      vehicle: 0.35
+      fire_crackle: 0.45
+augmentation:
+  enabled: true
+  gain_min: 0.8
+  gain_max: 1.2
+  noise_std: 0.003
+  max_shift_fraction: 0.08
+  max_time_mask_frames: 12
+  max_freq_mask_bins: 8
+paths:
+  manifest: data/audio/manifests/threat_manifest_kaggle_balanced_v2.csv
+  artifact_dir: models/audio/threat_cnn_kaggle_balanced_v2
