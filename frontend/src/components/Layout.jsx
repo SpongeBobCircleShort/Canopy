@@ -28,10 +28,11 @@ export default function Layout({ profile, onLogout, health, message, error, isDe
 
       <aside className={`main-sidebar ${isSidebarOpen ? 'open' : ''}`}>
         <div className="sidebar-header">
-          <h1>CANOPY</h1>
-          <span className="eyebrow">v0.2.0 / {health.status}</span>
+          <div className="sidebar-wordmark">CANOPY</div>
+          <div className="sidebar-version">v0.2.0 / {isDemoMode ? 'DEMO' : (health.status || '').toUpperCase()}</div>
         </div>
-        
+        <hr className="sidebar-header-rule" />
+
         <nav className="sidebar-nav">
           <Link to="/app" className={location.pathname === '/app' ? 'active' : ''} onClick={closeSidebar}>Overview</Link>
           <Link to="/app/ingestion" className={location.pathname === '/app/ingestion' ? 'active' : ''} onClick={closeSidebar}>Data Ingestion</Link>

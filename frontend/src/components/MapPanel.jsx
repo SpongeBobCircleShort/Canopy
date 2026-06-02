@@ -32,20 +32,23 @@ function DynamicMarkers({ alerts, sensors, satelliteChanges }) {
 
   return (
     <>
-      {sensors.map((sensor) => (
-        <CircleMarker
-          key={`sensor-${sensor.id}`}
-          center={[sensor.location.lat, sensor.location.lon]}
-          pathOptions={{ color: '#111111', weight: Math.max(1, 3 * scale), fillColor: '#62d2c1', fillOpacity: 1 }}
-          radius={Math.max(2, 8 * scale)}
-        >
-          <Popup>
-            <strong>{sensor.name}</strong>
-            <br />
-            Sensor status: {sensor.status}
-          </Popup>
-        </CircleMarker>
-      ))}
+      {sensors.map((sensor) => {
+        if (!sensor.location?.lat || !sensor.location?.lon) return null
+        return (
+          <CircleMarker
+            key={`sensor-${sensor.id}`}
+            center={[sensor.location.lat, sensor.location.lon]}
+            pathOptions={{ color: '#111111', weight: Math.max(1, 3 * scale), fillColor: '#62d2c1', fillOpacity: 1 }}
+            radius={Math.max(2, 8 * scale)}
+          >
+            <Popup>
+              <strong>{sensor.name}</strong>
+              <br />
+              Sensor status: {sensor.status}
+            </Popup>
+          </CircleMarker>
+        )
+      })}
       {satelliteChanges
         .filter((change) => change.latitude !== null && change.longitude !== null)
         .map((change) => (
@@ -68,34 +71,37 @@ function DynamicMarkers({ alerts, sensors, satelliteChanges }) {
             </Popup>
           </CircleMarker>
         ))}
-      {alerts.map((alert) => (
-        <CircleMarker
-          key={`alert-${alert.id}`}
-          center={[alert.location.lat, alert.location.lon]}
-          pathOptions={alertStyle(alert, scale)}
-          radius={alert.metadata?.fusion_score !== undefined ? Math.max(3, 14 * scale) : Math.max(2.5, 11 * scale)}
-        >
-          <Popup>
-            <strong>{alert.metadata?.fusion_score !== undefined ? 'Fused' : alert.type} alert</strong>
-            <br />
-            {alert.description}
-            {alert.metadata?.fusion_score !== undefined && (
-              <>
-                <br />
-                Fusion score: {Number(alert.metadata.fusion_score).toFixed(4)}
-              </>
-            )}
-          </Popup>
-        </CircleMarker>
-      ))}
+      {alerts.map((alert) => {
+        if (!alert.location?.lat || !alert.location?.lon) return null
+        return (
+          <CircleMarker
+            key={`alert-${alert.id}`}
+            center={[alert.location.lat, alert.location.lon]}
+            pathOptions={alertStyle(alert, scale)}
+            radius={alert.metadata?.fusion_score !== undefined ? Math.max(3, 14 * scale) : Math.max(2.5, 11 * scale)}
+          >
+            <Popup>
+              <strong>{alert.metadata?.fusion_score !== undefined ? 'Fused' : alert.type} alert</strong>
+              <br />
+              {alert.description}
+              {alert.metadata?.fusion_score !== undefined && (
+                <>
+                  <br />
+                  Fusion score: {Number(alert.metadata.fusion_score).toFixed(4)}
+                </>
+              )}
+            </Popup>
+          </CircleMarker>
+        )
+      })}
     </>
   )
 }
 
 function markerPoints(alerts, sensors, satelliteChanges) {
   return [
-    ...alerts.map((alert) => [alert.location.lat, alert.location.lon]),
-    ...sensors.map((sensor) => [sensor.location.lat, sensor.location.lon]),
+    ...alerts.filter((alert) => alert.location?.lat && alert.location?.lon).map((alert) => [alert.location.lat, alert.location.lon]),
+    ...sensors.filter((sensor) => sensor.location?.lat && sensor.location?.lon).map((sensor) => [sensor.location.lat, sensor.location.lon]),
     ...satelliteChanges
       .filter((change) => change.latitude !== null && change.longitude !== null)
       .map((change) => [change.latitude, change.longitude]),
@@ -127,8 +133,8 @@ export default function MapPanel({ alerts, sensors, satelliteChanges = [] }) {
     <section className="map-panel" aria-label="Canopy map">
       <MapContainer center={[center.lat, center.lon]} zoom={6} scrollWheelZoom className="map-canvas">
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          attribution='&copy; <a href="https://carto.com/attributions">CARTO</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
         />
         <AutoFitBounds alerts={alerts} sensors={sensors} satelliteChanges={satelliteChanges} />
         <DynamicMarkers alerts={alerts} sensors={sensors} satelliteChanges={satelliteChanges} />

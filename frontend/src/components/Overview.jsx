@@ -20,20 +20,23 @@ export default function Overview({
 
   return (
     <div className="page-content">
-      <header className="page-header">
-        <h2>Global Overview</h2>
-        <div className="header-actions">
-          <button 
-            className="export-button" 
-            onClick={() => setIsSimulating(!isSimulating)}
-            style={{ 
-              background: isSimulating ? '#ff4444' : 'var(--accent)', 
-              color: isSimulating ? '#fff' : '#000',
-              animation: isSimulating ? 'pulse 2s infinite' : 'none'
-            }}
-          >
-            {isSimulating ? '■ Stop Simulation' : '▶ Simulate Live Data'}
-          </button>
+      <header className="page-header" style={{ position: 'relative', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <h2 style={{ fontFamily: "var(--font-label)", fontWeight: 600, letterSpacing: "0.10em", fontSize: "1.4rem", color: "#FFFFFF", margin: 0 }}>GLOBAL OVERVIEW</h2>
+        
+        <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+          {!isAdmin && (
+            <div style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.10)", borderRadius: "100px", padding: "4px 12px", fontFamily: "var(--font-body)", fontWeight: 300, fontSize: "0.72rem", color: "#888", display: "flex", alignItems: "center" }}>
+              Demo mode · API not connected
+            </div>
+          )}
+          <div className="header-actions">
+            <button 
+              className={`export-button simulation-button ${isSimulating ? 'active' : ''}`}
+              onClick={() => setIsSimulating(!isSimulating)}
+            >
+              {isSimulating ? 'Stop Simulation' : 'Simulate Live Data'}
+            </button>
+          </div>
         </div>
       </header>
 
@@ -64,7 +67,7 @@ export default function Overview({
         <MapPanel alerts={alerts} sensors={sensors} satelliteChanges={satelliteChanges} />
         
         <aside className="sidebar" aria-label="Recent alerts">
-          <h2>Recent alerts</h2>
+          <h2 style={{ fontFamily: "var(--font-label)", textTransform: "uppercase", letterSpacing: "0.10em", fontSize: "0.78rem", color: "#FFFFFF", fontWeight: 500, marginBottom: "20px" }}>RECENT ALERTS</h2>
           {!alerts.length && <p>No alerts yet.</p>}
           {alerts.map((alert) => (
             <article className={`alert-card ${alert.metadata?.fusion_score !== undefined ? 'fused-alert-card' : ''}`} key={alert.id}>
@@ -73,12 +76,14 @@ export default function Overview({
                 <span className="pill muted">{alert.type}</span>
                 <span className="pill status">{alert.status}</span>
               </div>
-              <h3>{alert.description}</h3>
-              <p>
+              <h3 style={{ fontFamily: "var(--font-body)", fontSize: "0.875rem", fontWeight: 500, color: "#FFFFFF", textTransform: "none", lineHeight: 1.4, marginBottom: "8px", marginTop: "12px" }}>
+                {alert.description}
+              </h3>
+              <p style={{ fontFamily: "var(--font-body)", fontWeight: 300, fontSize: "0.78rem", color: "#666", lineHeight: 1.6 }}>
                 {alert.location.lat.toFixed(4)}, {alert.location.lon.toFixed(4)} · sensor {alert.sensor_id ?? 'none'}
               </p>
               {alert.classifier_label && (
-                <p>
+                <p style={{ fontFamily: "var(--font-body)", fontWeight: 300, fontSize: "0.78rem", color: "#666", lineHeight: 1.6 }}>
                   Classifier: {alert.classifier_label} ({formatPercent(alert.classifier_confidence)})
                   {alert.metadata?.model_domain ? ` · ${alert.metadata.model_domain}` : ''}
                 </p>
@@ -90,9 +95,9 @@ export default function Overview({
                   {alert.metadata.fusion_scoring_mode ? ` | ${alert.metadata.fusion_scoring_mode}` : ''}
                 </p>
               )}
-              <label>
+              <label style={{ fontFamily: "var(--font-label)", textTransform: "uppercase", letterSpacing: "0.09em", fontSize: "0.65rem", color: "#555" }}>
                 Update status
-                <select
+                <select className="status-select"
                   value=""
                   disabled={!isAdmin}
                   onChange={(event) => {

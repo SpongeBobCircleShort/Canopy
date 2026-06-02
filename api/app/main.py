@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
 from app.db import initialize_database
-from app.routers import alerts, auth, clips, fusion, ndvi, organizations, regions, satellite_changes, sensors
+from app.routers import alerts, auth, clips, fusion, model, ndvi, organizations, regions, satellite_changes, sensors
 from app.schemas import HealthResponse
 
 
@@ -42,3 +42,4 @@ app.include_router(ndvi.router, prefix="/api/ndvi", tags=["ndvi"])
 app.include_router(fusion.router, prefix="/api/fusion", tags=["fusion"])
 app.include_router(alerts.router, prefix="/api/alerts", tags=["alerts"])
 app.include_router(clips.router, prefix="/api/clips", tags=["clips"])
+app.include_router(model.router, prefix="/api/model", tags=["model"])

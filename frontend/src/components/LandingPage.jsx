@@ -1,48 +1,46 @@
 import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
 
-function buildDotMap(highlightIndia) {
-  const w = 56
-  const h = 28
-  const dots = []
-  const india = (x, y) => x > 34 && x < 48 && y > 8 && y < 22
-  const belt = (x, y) =>
-    (x > 8 && x < 28 && y > 6 && y < 18) ||
-    (x > 30 && x < 50 && y > 4 && y < 24) ||
-    (highlightIndia && india(x, y))
-
-  let seed = highlightIndia ? 42 : 7
+function buildWaveBars() {
+  const bars = []
+  let seed = 29
   const rand = () => {
     seed = (seed * 16807) % 2147483647
     return seed / 2147483647
   }
 
-  for (let y = 0; y < h; y += 1) {
-    for (let x = 0; x < w; x += 1) {
-      if (rand() > 0.38) {
-        dots.push({ x, y, hi: belt(x, y) })
-      }
-    }
+  for (let index = 0; index < 64; index += 1) {
+    const wave = Math.sin(index * 0.42) * 18 + Math.sin(index * 0.13) * 12
+    const height = Math.max(18, Math.min(96, 48 + wave + rand() * 26))
+    bars.push({ height, delay: `${index * -70}ms` })
   }
-  return { w, h, dots }
+  return bars
 }
 
-function DotMap({ highlightIndia }) {
-  const { w, h, dots } = useMemo(() => buildDotMap(highlightIndia), [highlightIndia])
+function Waveform() {
+  const bars = useMemo(buildWaveBars, [])
 
   return (
-    <svg className="landing-map" viewBox={`0 0 ${w * 8} ${h * 8}`} preserveAspectRatio="xMidYMax meet" aria-hidden="true">
-      {dots.map(({ x, y, hi }) => (
-        <circle
-          key={`${x}-${y}`}
-          cx={x * 8 + 4}
-          cy={y * 8 + 4}
-          r={hi ? 3.2 : 2.2}
-          fill={hi ? '#c8ff3e' : '#3a4a42'}
-          opacity={hi ? 0.95 : 0.5}
-        />
-      ))}
-    </svg>
+    <div className="landing-waveform" aria-hidden="true">
+      <svg width="100%" height="100%" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+        {bars.map((bar, index) => (
+          <rect
+            key={index}
+            x={`${(index / 64) * 100}%`}
+            y={`${100 - bar.height}%`}
+            width={`${100 / 64 - 0.2}%`}
+            height={`${bar.height}%`}
+            fill="var(--ink)"
+            className="waveform-bar"
+            style={{
+              animation: `waveform-rise 4.8s var(--ease-out) infinite`,
+              animationDelay: bar.delay,
+              transformOrigin: 'bottom'
+            }}
+          />
+        ))}
+      </svg>
+    </div>
   )
 }
 
@@ -84,22 +82,34 @@ export default function LandingPage() {
         <span className="landing-brand">Canopy</span>
         <nav className="landing-nav">
           <a href="/deck.html">Presentation</a>
-          <Link to="/app">Dashboard</Link>
+          <Link to="/app" className="nav-cta">Dashboard</Link>
         </nav>
       </header>
 
       <main className="landing-main">
         <div className="landing-hero">
-          <div>
+          <Waveform />
+          <div className="hero-divider" />
+          <div className="landing-hero-heading">
             <p className="landing-eyebrow">Forest monitoring</p>
             <h1>
-              Scale conservation intelligence across <span className="landing-accent">India’s forest landscapes.</span>
+              Scale conservation intelligence across <em>India’s forest landscapes.</em>
             </h1>
           </div>
-          <p className="landing-lead">
-            Canopy fuses satellite vegetation signals with acoustic threat detection on one map — built for NGOs,
-            researchers, and government GIS teams. PostGIS-native. Pilot-ready.
-          </p>
+          <div className="landing-hero-copy">
+            <p className="landing-lead">
+              Canopy fuses satellite vegetation signals with acoustic threat detection on one map — built for NGOs,
+              researchers, and government GIS teams. PostGIS-native. Pilot-ready.
+            </p>
+            <div className="landing-cta">
+              <a className="landing-btn primary" href="/deck.html">
+                View full presentation
+              </a>
+              <Link className="landing-btn ghost" to="/app">
+                Open dashboard
+              </Link>
+            </div>
+          </div>
         </div>
 
         <div className="landing-features">
@@ -111,17 +121,6 @@ export default function LandingPage() {
             </div>
           ))}
         </div>
-
-        <div className="landing-cta">
-          <a className="landing-btn primary" href="/deck.html">
-            View full presentation
-          </a>
-          <Link className="landing-btn ghost" to="/app">
-            Open dashboard
-          </Link>
-        </div>
-
-        <DotMap highlightIndia />
       </main>
 
       <footer className="landing-footer">

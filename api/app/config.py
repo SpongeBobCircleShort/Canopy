@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     jwt_secret: str = "change-me-in-production"
     audio_storage_path: str = "/tmp/canopy-audio"
     audio_model_path: str | None = None
+    metrics_path: str | None = None
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

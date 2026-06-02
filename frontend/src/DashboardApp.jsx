@@ -157,7 +157,7 @@ export default function DashboardApp() {
       window.localStorage.removeItem('canopy_token')
       setToken('')
       resetDemoState()
-      setMessage('Showing public demo dashboard. API data is not connected.')
+      setMessage('')
     }
   }
 
@@ -346,8 +346,8 @@ export default function DashboardApp() {
         change_type: 'ndvi_drop',
         severity_score: 0.48 + offset * 0.06,
         confidence: 0.86,
-        latitude: (sensor?.location.lat || -3.4653) + offset * 0.0004,
-        longitude: (sensor?.location.lon || -62.2159) - offset * 0.0004,
+        latitude: (sensor?.location?.lat || 20.5937) + offset * 0.0004,
+        longitude: (sensor?.location?.lon || 78.9629) - offset * 0.0004,
         description: `Demo NDVI drop row ${offset + 1}`,
         metadata: { baseline_ndvi: 0.72, recent_ndvi: 0.48 - offset * 0.03, ndvi_delta: -0.24 - offset * 0.03 },
         created_at: nowIso(),
