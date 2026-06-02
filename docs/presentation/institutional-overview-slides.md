@@ -133,6 +133,7 @@ severity_score = min(|ndvi_delta| / 0.5, 1.0)
 **Bullets:**
 - Research prototype on public + curated datasets (separate from API runtime today)
 - MVP API uses placeholder classifier until model integration
+- Alert metadata tracks model_domain (`urban_cnn`, `forest_v1`) for comparison
 - Designed for Indian forest soundscapes via future field-labeled data partnership
 
 ---
@@ -153,6 +154,8 @@ fusion_score =
 ```
 
 **Output:** Fused alert with linked acoustic_alert_id, satellite_change_id, distance_meters, fusion_score — included in CSV export
+
+**Guardrail:** if acoustic confidence is below threshold, acoustic weight is suppressed (`fusion_scoring_mode=satellite_only`) instead of weakly contributing to the fused score.
 
 ---
 

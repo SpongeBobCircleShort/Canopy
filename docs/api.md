@@ -130,7 +130,9 @@ fusion_score =
   + 0.10 * recurrence_bonus
 ```
 
-Fused alert metadata includes `acoustic_alert_id`, `satellite_change_id`, `acoustic_confidence`, `satellite_severity_score`, `satellite_confidence`, `distance_meters`, `fusion_score`, and `fusion_rule_version`.
+When `acoustic_confidence` is below `min_acoustic_confidence`, the fusion service does not silently apply a weak acoustic score. It creates an auditable satellite-only scored match with `acoustic_weight=0.0`, `acoustic_suppressed=true`, and `fusion_scoring_mode=satellite_only`.
+
+Fused alert metadata includes `acoustic_alert_id`, `satellite_change_id`, `acoustic_confidence`, `acoustic_confidence_threshold`, `acoustic_suppressed`, `acoustic_weight`, `satellite_severity_score`, `satellite_confidence`, `distance_meters`, `fusion_score`, `fusion_scoring_mode`, `fusion_rule_version`, and `model_domain` when available.
 
 Examples:
 

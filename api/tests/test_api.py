@@ -239,6 +239,7 @@ def test_csv_export_only_contains_current_org_alerts() -> None:
             "created_at",
             "classifier_label",
             "classifier_confidence",
+            "model_domain",
             "fusion_score",
             "acoustic_alert_id",
             "satellite_change_id",
@@ -294,7 +295,7 @@ def test_upload_clip_uses_configured_audio_model(monkeypatch: pytest.MonkeyPatch
             return {
                 "label": "gunshot",
                 "confidence": 0.91,
-                "model_version": "unit-model-v1",
+                "model_version": "threat-cnn-expanded-v6-bg-conservative",
                 "scores": {"gunshot": 0.91, "background_unknown": 0.09},
             }
 
@@ -320,8 +321,9 @@ def test_upload_clip_uses_configured_audio_model(monkeypatch: pytest.MonkeyPatch
         body = response.json()
         assert body["classifier_label"] == "gunshot"
         assert body["classifier_confidence"] == 0.91
-        assert body["classifier_model_version"] == "unit-model-v1"
+        assert body["classifier_model_version"] == "threat-cnn-expanded-v6-bg-conservative"
         assert body["generated_alert"]["priority"] == "high"
+        assert body["generated_alert"]["metadata"]["model_domain"] == "urban_cnn"
     finally:
         get_settings.cache_clear()
 
@@ -637,7 +639,10 @@ def test_fusion_creates_metadata_priority_and_avoids_duplicates() -> None:
         assert fused["metadata"]["satellite_confidence"] == 0.9
         assert fused["metadata"]["distance_meters"] <= 500
         assert abs(fused["metadata"]["fusion_score"] - 0.739) < 0.0001
-        assert fused["metadata"]["fusion_rule_version"] == "rule-fusion-v0"
+        assert fused["metadata"]["acoustic_suppressed"] is False
+        assert fused["metadata"]["acoustic_weight"] == 0.45
+        assert fused["metadata"]["fusion_scoring_mode"] == "acoustic_satellite"
+        assert fused["metadata"]["fusion_rule_version"] == "rule-fusion-v1"
 
         listed = client.get("/api/alerts", headers=_auth_header(token), params={"type": "fusion"})
         assert listed.status_code == 200
@@ -646,6 +651,36 @@ def test_fusion_creates_metadata_priority_and_avoids_duplicates() -> None:
         duplicate = _run_fusion(client, token)
         assert duplicate["matched_count"] == 1
         assert duplicate["created_count"] == 0
+
+
+def test_fusion_suppresses_low_confidence_acoustic_weight() -> None:
+    _reset_test_database()
+    with TestClient(app) as client:
+        token = _signup(client, email="suppressed-fusion@example.org", org_name="Suppressed Fusion Org")
+        region = _create_region(client, token)
+        sensor = _create_sensor(client, token, lat=-3.0, lon=-60.0, region_id=region["id"])
+        acoustic = _upload_chainsaw_clip(client, token, sensor["id"])
+        satellite = _create_satellite_change(client, token, region_id=region["id"], severity_score=0.8, confidence=0.9)
+
+        result = _run_fusion(
+            client,
+            token,
+            {"time_window_days": 14, "distance_meters": 500, "min_acoustic_confidence": 0.95, "min_satellite_severity": 0.3},
+        )
+
+        assert result["matched_count"] == 1
+        assert result["created_count"] == 1
+        fused = result["alerts"][0]
+        assert fused["metadata"]["acoustic_alert_id"] == acoustic["id"]
+        assert fused["metadata"]["satellite_change_id"] == satellite["id"]
+        assert fused["metadata"]["acoustic_confidence"] == 0.82
+        assert fused["metadata"]["acoustic_confidence_threshold"] == 0.95
+        assert fused["metadata"]["acoustic_suppressed"] is True
+        assert fused["metadata"]["acoustic_weight"] == 0.0
+        assert fused["metadata"]["acoustic_score_contribution"] == 0.0
+        assert fused["metadata"]["fusion_scoring_mode"] == "satellite_only"
+        assert abs(fused["metadata"]["fusion_score"] - 0.37) < 0.0001
+        assert fused["priority"] == "low"
 
 
 def test_fusion_respects_thresholds_and_org_boundaries() -> None:

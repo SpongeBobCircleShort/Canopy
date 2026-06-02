@@ -174,7 +174,9 @@ fusion_score =
   + 0.10 * recurrence_bonus
 ```
 
-The created fused alert stores provenance in `metadata`: `acoustic_alert_id`, `satellite_change_id`, `acoustic_confidence`, `satellite_severity_score`, `satellite_confidence`, `distance_meters`, `fusion_score`, and `fusion_rule_version`. Alert CSV export includes these fields where available.
+If `acoustic_confidence` is below the fusion request's `min_acoustic_confidence`, Canopy still records the spatial/temporal match but suppresses the acoustic contribution: `acoustic_weight=0.0`, `fusion_scoring_mode=satellite_only`, and the score is based on satellite severity, satellite confidence, and recurrence only.
+
+The created fused alert stores provenance in `metadata`: `acoustic_alert_id`, `satellite_change_id`, `acoustic_confidence`, `acoustic_confidence_threshold`, `acoustic_suppressed`, `acoustic_weight`, `satellite_severity_score`, `satellite_confidence`, `distance_meters`, `fusion_score`, `fusion_scoring_mode`, `fusion_rule_version`, and `model_domain` when available. Alert CSV export includes these fields where available.
 
 ### Browser demo flow
 

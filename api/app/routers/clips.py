@@ -42,6 +42,7 @@ async def upload_clip(
 
     classifier_result = classify_clip(destination)
     clip_id = create_audio_clip(destination, org_id=org_id, sensor_id=sensor_id)
+    alert_metadata = {"model_domain": classifier_result.model_domain} if classifier_result.model_domain else None
     generated_alert = create_alert(
         org_id,
         AlertCreate(
@@ -57,6 +58,7 @@ async def upload_clip(
             classifier_label=classifier_result.label,
             classifier_confidence=classifier_result.confidence,
             classifier_model_version=classifier_result.model_version,
+            metadata=alert_metadata,
         ),
     )
 

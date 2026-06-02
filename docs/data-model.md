@@ -24,7 +24,7 @@ The FastAPI application writes organizations, regions, sensors, alerts, users, a
 
 ## Alert lifecycle fields
 
-Alerts include lifecycle `status`, optional `status_note`, `created_at`, and `updated_at`. Audio alerts may include `classifier_label`, `classifier_confidence`, and `classifier_model_version` so a real classifier can be plugged in later without changing the API response shape.
+Alerts include lifecycle `status`, optional `status_note`, `created_at`, and `updated_at`. Audio alerts may include `classifier_label`, `classifier_confidence`, and `classifier_model_version` so a real classifier can be plugged in later without changing the API response shape. Alert metadata may include `model_domain`; current domain values are `urban_cnn` for v5/v6 CNN artifacts and `forest_v1` for the forest-domain model line.
 
 ## Organization and roles
 

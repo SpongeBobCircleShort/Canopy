@@ -9,6 +9,7 @@ class ClassificationResult(BaseModel):
     label: str
     confidence: float = Field(..., ge=0.0, le=1.0)
     model_version: str = "placeholder-v0"
+    model_domain: str | None = None
     scores: dict[str, float] | None = None
 
 
@@ -26,6 +27,7 @@ def _classify_with_model(file_path: Path, model_dir: Path) -> ClassificationResu
         label=prediction["label"],
         confidence=prediction["confidence"],
         model_version=prediction["model_version"],
+        model_domain=model_domain_for_version(prediction["model_version"]),
         scores=prediction.get("scores"),
     )
 
@@ -50,3 +52,12 @@ def _classify_with_filename_fallback(file_path: Path) -> ClassificationResult:
     if "gunshot" in filename or "shot" in filename:
         return ClassificationResult(label="gunshot", confidence=0.78)
     return ClassificationResult(label="unknown", confidence=0.35)
+
+
+def model_domain_for_version(model_version: str | None) -> str | None:
+    normalized = (model_version or "").lower().replace("_", "-")
+    if "forest-v1" in normalized:
+        return "forest_v1"
+    if "expanded-v5" in normalized or "expanded-v6" in normalized or "-v5" in normalized or "-v6" in normalized:
+        return "urban_cnn"
+    return None

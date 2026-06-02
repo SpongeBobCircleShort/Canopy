@@ -479,12 +479,14 @@ export default function Dashboard({
                 <p>
                   Classifier: {alert.classifier_label} ({formatPercent(alert.classifier_confidence)}) ·{' '}
                   {alert.classifier_model_version}
+                  {alert.metadata?.model_domain ? ` · ${alert.metadata.model_domain}` : ''}
                 </p>
               )}
               {alert.metadata?.fusion_score !== undefined && (
                 <p className="fusion-metadata">
                   Fusion score: {Number(alert.metadata.fusion_score).toFixed(4)} · acoustic alert {alert.metadata.acoustic_alert_id} · satellite change{' '}
                   {alert.metadata.satellite_change_id}
+                  {alert.metadata.fusion_scoring_mode ? ` · ${alert.metadata.fusion_scoring_mode}` : ''}
                 </p>
               )}
               <label>
