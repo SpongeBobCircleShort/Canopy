@@ -2,6 +2,8 @@
 
 This directory contains the Phase 3A research prototype for a custom acoustic threat classifier. The FastAPI runtime can use a trained artifact when `AUDIO_MODEL_PATH` points at a model directory containing `model.pt`, `config.yaml`, and `labels.json`. If that variable is unset, `/api/clips/upload` falls back to the deterministic filename classifier used by lightweight demos and tests.
 
+Current model status and promotion blockers are tracked in [MODEL_STATUS.md](MODEL_STATUS.md). As of 2026-06-02, `forest_v1b` fails the tambopata held-out deployment-style check: calibrated chainsaw recall is 0.195 at 0.000 background FP, so acoustic confidence stays suppressed in fusion until the fixed held-out pass gate is met.
+
 ## Labels
 
 The first model targets five operational classes:

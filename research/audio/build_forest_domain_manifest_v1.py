@@ -29,6 +29,8 @@ def build_forest_manifest(
     rfcx_val_fraction: float = 0.2,
     rfcx_chainsaw_max_per_site: int | None = None,
     rfcx_background_max_per_site: int | None = None,
+    rfcx_heldout_site: str | None = None,
+    chainsaw_background_only: bool = False,
     kaggle_chainsaw_train_rows: int = 300,
     kaggle_fire_rows_per_split: int | None = None,
     kaggle_gunshot_rows_per_split: int | None = 160,
@@ -44,14 +46,18 @@ def build_forest_manifest(
         val_fraction=rfcx_val_fraction,
         chainsaw_max_per_site=rfcx_chainsaw_max_per_site,
         background_max_per_site=rfcx_background_max_per_site,
+        heldout_site=rfcx_heldout_site,
         seed=seed,
     )
     rows.extend(rfcx_rows)
 
     if fsc22_manifest and fsc22_manifest.exists():
+        fsc22_rows = _read_rows(fsc22_manifest)
+        if chainsaw_background_only:
+            fsc22_rows = [row for row in fsc22_rows if row.get("label") == "background_unknown"]
         rows.extend(
             _train_only_rows(
-                _sample_fsc22_by_class(_read_rows(fsc22_manifest), rows_per_class=fsc22_rows_per_class, rng=rng),
+                _sample_fsc22_by_class(fsc22_rows, rows_per_class=fsc22_rows_per_class, rng=rng),
                 source_note="forest_v1=train_only; forest_background_negative=true",
             )
         )
@@ -62,16 +68,21 @@ def build_forest_manifest(
                 source_note=f"forest_v1=train_only; kaggle_chainsaw_train_rows={kaggle_chainsaw_train_rows}",
             )
         )
-    if kaggle_fire_manifest and kaggle_fire_manifest.exists():
+    if not chainsaw_background_only and kaggle_fire_manifest and kaggle_fire_manifest.exists():
         rows.extend(_sample_by_split(_read_rows(kaggle_fire_manifest), rows_per_split=kaggle_fire_rows_per_split, rng=rng))
-    if kaggle_gunshot_manifest and kaggle_gunshot_manifest.exists():
+    if not chainsaw_background_only and kaggle_gunshot_manifest and kaggle_gunshot_manifest.exists():
         rows.extend(_sample_by_split(_read_rows(kaggle_gunshot_manifest), rows_per_split=kaggle_gunshot_rows_per_split, rng=rng))
-    if kaggle_vehicle_manifest and kaggle_vehicle_manifest.exists():
+    if not chainsaw_background_only and kaggle_vehicle_manifest and kaggle_vehicle_manifest.exists():
         rows.extend(_sample_by_split(_read_rows(kaggle_vehicle_manifest), rows_per_split=kaggle_vehicle_rows_per_split, rng=rng))
 
     rows = [_normalize_row(row) for row in rows]
     write_manifest(output, rows)
-    report = _manifest_report(rows, rfcx_report=rfcx_report, seed=seed)
+    report = _manifest_report(
+        rows,
+        rfcx_report=rfcx_report,
+        seed=seed,
+        chainsaw_background_only=chainsaw_background_only,
+    )
     if report_output:
         report_output.parent.mkdir(parents=True, exist_ok=True)
         report_output.write_text(json.dumps(report, indent=2) + "\n")
@@ -84,8 +95,10 @@ def _rfcx_rows(
     val_fraction: float,
     chainsaw_max_per_site: int | None,
     background_max_per_site: int | None,
+    heldout_site: str | None,
     seed: int,
 ) -> tuple[list[dict[str, str]], dict]:
+    heldout_site = heldout_site.strip() if heldout_site else None
     source_rows = _read_rows(curation_path)
     parsed = []
     for row in source_rows:
@@ -98,16 +111,31 @@ def _rfcx_rows(
         parsed,
         chainsaw_max_per_site=chainsaw_max_per_site,
         background_max_per_site=background_max_per_site,
+        uncapped_sites={heldout_site} if heldout_site else set(),
         seed=seed,
     )
 
-    test_recording_ids = {recording_id for _, _, recording_id, split in parsed if split == "test"}
+    test_recording_ids = {
+        recording_id
+        for _, site_id, recording_id, split in parsed
+        if split == "test" and (heldout_site is None or site_id == heldout_site)
+    }
     train_rows_by_label: dict[str, dict[str, list[tuple[dict[str, str], str, str, str]]]] = defaultdict(lambda: defaultdict(list))
     output_rows: list[dict[str, str]] = []
     dropped_overlap = 0
 
     for row, site_id, recording_id, split in parsed:
-        if split == "test":
+        if heldout_site and site_id == heldout_site:
+            output_rows.append(
+                _rfcx_manifest_row(
+                    row,
+                    split="test",
+                    site_id=site_id,
+                    recording_id=recording_id,
+                    heldout_site=heldout_site,
+                )
+            )
+        elif split == "test" and heldout_site is None:
             output_rows.append(_rfcx_manifest_row(row, split="test", site_id=site_id, recording_id=recording_id))
         elif recording_id in test_recording_ids:
             dropped_overlap += 1
@@ -129,6 +157,19 @@ def _rfcx_rows(
     report = {
         "rfcx_source_rows": len(source_rows),
         "rfcx_rows": len(output_rows),
+        "rfcx_heldout_site": heldout_site or "",
+        "rfcx_heldout_rows": sum(1 for row in output_rows if f"site_id={heldout_site}" in row.get("notes", "") and row["split"] == "test")
+        if heldout_site
+        else 0,
+        "rfcx_heldout_label_counts": dict(
+            sorted(
+                Counter(
+                    row["label"]
+                    for row in output_rows
+                    if heldout_site and f"site_id={heldout_site}" in row.get("notes", "") and row["split"] == "test"
+                ).items()
+            )
+        ),
         "rfcx_dropped_train_val_overlap_with_test": dropped_overlap,
         "rfcx_source_chainsaw_unique_inferred_sites": len(source_chainsaw_sites),
         "rfcx_source_chainsaw_inferred_site_counts": dict(source_chainsaw_sites.most_common()),
@@ -144,6 +185,7 @@ def _apply_rfcx_site_caps(
     *,
     chainsaw_max_per_site: int | None,
     background_max_per_site: int | None,
+    uncapped_sites: set[str],
     seed: int,
 ) -> tuple[list[tuple[dict[str, str], str, str, str]], dict]:
     caps = {"chainsaw": chainsaw_max_per_site, "background_unknown": background_max_per_site}
@@ -162,7 +204,7 @@ def _apply_rfcx_site_caps(
     for item in parsed:
         row, site_id, _, _ = item
         cap = caps.get(row.get("label", ""))
-        if cap is None:
+        if cap is None or site_id in uncapped_sites:
             uncapped.append(item)
         else:
             by_label_site[(row["label"], site_id)].append(item)
@@ -183,11 +225,19 @@ def _apply_rfcx_site_caps(
     }
 
 
-def _rfcx_manifest_row(row: dict[str, str], *, split: str, site_id: str, recording_id: str) -> dict[str, str]:
+def _rfcx_manifest_row(
+    row: dict[str, str],
+    *,
+    split: str,
+    site_id: str,
+    recording_id: str,
+    heldout_site: str | None = None,
+) -> dict[str, str]:
     notes = row.get("notes", "")
+    heldout_note = f"; heldout_site={heldout_site}" if heldout_site else ""
     notes = (
         f"{notes}; source_recording_id={recording_id}; site_id={site_id}; "
-        f"forest_domain_v1=true; original_split={row.get('split', '')}"
+        f"forest_domain_v1=true; original_split={row.get('split', '')}{heldout_note}"
     ).strip("; ")
     return {
         "path": str(Path(row["path"]).resolve()),
@@ -263,9 +313,10 @@ def _train_only_rows(rows: list[dict[str, str]], *, source_note: str) -> list[di
     return output
 
 
-def _manifest_report(rows: list[dict[str, str]], *, rfcx_report: dict, seed: int) -> dict:
+def _manifest_report(rows: list[dict[str, str]], *, rfcx_report: dict, seed: int, chainsaw_background_only: bool) -> dict:
     return {
         "seed": seed,
+        "chainsaw_background_only": chainsaw_background_only,
         "label_counts": dict(sorted(Counter(row["label"] for row in rows).items())),
         "split_counts": dict(sorted(Counter(row["split"] for row in rows).items())),
         "source_counts": dict(sorted(Counter(row["source"] for row in rows).items())),
@@ -306,6 +357,8 @@ def main() -> None:
     parser.add_argument("--rfcx-val-fraction", type=float, default=0.2)
     parser.add_argument("--rfcx-chainsaw-max-per-site", type=int)
     parser.add_argument("--rfcx-background-max-per-site", type=int)
+    parser.add_argument("--rfcx-heldout-site", help="Reserve all RFCx rows from this inferred site as the only test split.")
+    parser.add_argument("--chainsaw-background-only", action="store_true", help="Build a chainsaw/background-only manifest.")
     parser.add_argument("--kaggle-chainsaw-train-rows", type=int, default=300)
     parser.add_argument("--kaggle-gunshot-rows-per-split", type=int, default=160)
     parser.add_argument("--kaggle-vehicle-rows-per-split", type=int, default=220)
@@ -325,6 +378,8 @@ def main() -> None:
         rfcx_val_fraction=args.rfcx_val_fraction,
         rfcx_chainsaw_max_per_site=args.rfcx_chainsaw_max_per_site,
         rfcx_background_max_per_site=args.rfcx_background_max_per_site,
+        rfcx_heldout_site=args.rfcx_heldout_site,
+        chainsaw_background_only=args.chainsaw_background_only,
         kaggle_chainsaw_train_rows=args.kaggle_chainsaw_train_rows,
         kaggle_gunshot_rows_per_split=args.kaggle_gunshot_rows_per_split,
         kaggle_vehicle_rows_per_split=args.kaggle_vehicle_rows_per_split,

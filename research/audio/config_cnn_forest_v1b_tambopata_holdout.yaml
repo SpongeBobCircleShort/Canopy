@@ -1,0 +1,61 @@
+model_version: threat-cnn-forest-v1b-tambopata-holdout
+labels:
+  - chainsaw
+  - gunshot
+  - vehicle
+  - fire_crackle
+  - background_unknown
+model:
+  architecture: cnn
+  dropout: 0.1
+audio:
+  sample_rate: 16000
+  clip_seconds: 4.0
+  n_mels: 64
+training:
+  batch_size: 16
+  epochs: 16
+  learning_rate: 0.001
+  seed: 58
+  device: auto
+  class_weighting: true
+  weighted_sampler: true
+  sampler_weight_power: 0.75
+  sampler_label_multiplier_mode: multiply
+  sampler_label_multipliers:
+    background_unknown: 4.0
+    chainsaw: 2.5
+  sampler_source_multipliers:
+    rfcx_frugalai: 3.0
+    fsc22: 3.0
+    kaggle_chainsaw_rainforest: 1.2
+  checkpoint_each_epoch: true
+  scheduler: none
+  progress_log_interval: 100
+loss:
+  name: cross_entropy
+evaluation:
+  threshold_step: 0.05
+  min_precision:
+    chainsaw: 0.65
+    background_unknown: 0.8
+  max_background_fp_rate:
+    chainsaw: 0.04
+    gunshot: 0.0
+    vehicle: 0.0
+    fire_crackle: 0.0
+  selection:
+    background_false_positive_penalty: 2.0
+    min_recall:
+      chainsaw: 0.45
+augmentation:
+  enabled: true
+  gain_min: 0.8
+  gain_max: 1.2
+  noise_std: 0.003
+  max_shift_fraction: 0.08
+  max_time_mask_frames: 12
+  max_freq_mask_bins: 8
+paths:
+  manifest: data/audio/manifests/threat_manifest_forest_v1b_tambopata_holdout.csv
+  artifact_dir: models/audio/threat_cnn_forest_v1b_tambopata_holdout
