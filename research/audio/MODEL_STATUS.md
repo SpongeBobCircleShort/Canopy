@@ -25,4 +25,11 @@ Calibration used validation-only threshold selection with `max_background_fp_rat
 
 Finding: forest_v1b contains a real chainsaw-like signal, but it does not learn a deployable cross-site decision boundary. On tambopata, the raw model finds most chainsaws only by also predicting half of held-out background as chainsaw. The calibrated operating point controls background false positives by suppressing most chainsaw detections. This fails the acoustic pass gate and should not re-enter fusion scoring.
 
-Decision: do not start v1c, do not mine hard negatives from v1b, and do not tune architecture or thresholds around this result. The next useful data is deployment-site field audio: matched chainsaw positives and forest-at-rest background from the same microphones, sites, seasons, weather, and recording setup used by Canopy deployments. The pass gate remains chainsaw recall above 0.70 and background FP below 0.10 on a held-out set containing clips from at least 3 different RFCx or deployment sites.
+Decision: do not start v1c, do not mine hard negatives from v1b, and do not tune architecture or thresholds around this result. The next useful data is deployment-site field audio: matched chainsaw positives and forest-at-rest background from the same microphones, sites, seasons, weather, and recording setup used by Canopy deployments. The operational collection specification is [Field Audio Data Requirements](../../docs/field-data-requirements.md). The pass gate remains chainsaw recall above 0.70 and background FP below 0.10 on a held-out set containing clips from at least 3 different RFCx or deployment sites.
+
+Estimated timeline once minimum viable field data is received:
+
+- Days 1-2: ingest audio, validate metadata, reject unusable rows, and produce a data quality report.
+- Days 3-5: build an organization-scoped chainsaw/background manifest with complete-site held-out validation.
+- Days 6-7: train and calibrate a field baseline, then report held-out recall and background false-positive rate.
+- Week 2: if the fixed pass gate is met, run a limited org-only fusion pilot; if it is not met, keep acoustic confidence suppressed and return a concrete data gap report.

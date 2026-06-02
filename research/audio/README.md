@@ -4,6 +4,10 @@ This directory contains the Phase 3A research prototype for a custom acoustic th
 
 Current model status and promotion blockers are tracked in [MODEL_STATUS.md](MODEL_STATUS.md). As of 2026-06-02, `forest_v1b` fails the tambopata held-out deployment-style check: calibrated chainsaw recall is 0.195 at 0.000 background FP, so acoustic confidence stays suppressed in fusion until the fixed held-out pass gate is met.
 
+## Field Data Partnership
+
+The acoustic classifier is a research prototype pending field validation. More public audio is not expected to fix the current failure mode; Canopy needs deployment-site recordings with verified labels. Conservation partners should use [Field Audio Data Requirements](../../docs/field-data-requirements.md) as the operational collection spec and [MODEL_STATUS.md](MODEL_STATUS.md) for the current promotion gate, known limitations, and expected timeline after minimum viable field data arrives.
+
 ## Labels
 
 The first model targets five operational classes:
