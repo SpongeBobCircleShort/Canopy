@@ -25,56 +25,6 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-.login-page {
-  display: flex;
-  min-height: 100vh;
-  align-items: center;
-  justify-content: center;
-  background-image:
-    linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
-  background-size: 40px 40px;
-}
-
-.login-container {
-  width: 100%;
-  max-width: 440px;
-  text-align: center;
-}
-
-.login-container h1 {
-  font-size: 3.5rem;
-  margin-bottom: 8px;
-}
-
-.login-card {
-  text-align: left;
-  margin-top: 32px;
-}
-
-.auth-toggle {
-  display: flex;
-  margin-bottom: 24px;
-  border-bottom: 1px solid var(--border-color);
-}
-
-.auth-toggle button {
-  flex: 1;
-  background: transparent;
-  color: var(--text-muted);
-  border-radius: 0;
-  border-bottom: 2px solid transparent;
-}
-
-.auth-toggle button.active {
-  color: var(--accent);
-  border-bottom: 2px solid var(--accent);
-}
-
-.auth-toggle button:hover {
-  background: rgba(255, 255, 255, 0.05);
-}
-
 .layout-container {
   display: flex;
   min-height: 100vh;
@@ -811,26 +761,6 @@ button:disabled {
   color: #5a6a60;
   border-top: 1px solid rgba(255, 255, 255, 0.06);
   text-align: center;
-}
-
-.dashboard-auth-wrap {
-  position: relative;
-  min-height: 100vh;
-}
-
-.landing-back-link {
-  position: absolute;
-  top: 24px;
-  left: 24px;
-  z-index: 10;
-  color: #c8ff3e;
-  font-size: 0.85rem;
-  font-weight: 600;
-  text-decoration: none;
-}
-
-.landing-back-link:hover {
-  text-decoration: underline;
 }
 
 @media (max-width: 768px) {

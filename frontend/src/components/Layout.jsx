@@ -3,7 +3,7 @@ import { Link, Outlet, useLocation } from 'react-router-dom'
 
 import ToastStack from './ToastStack.jsx'
 
-export default function Layout({ profile, onLogout, health, message, error }) {
+export default function Layout({ profile, onLogout, health, message, error, isDemoMode = false }) {
   const location = useLocation()
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
 
@@ -45,7 +45,7 @@ export default function Layout({ profile, onLogout, health, message, error }) {
               <span>{profile.role}</span>
             </div>
           )}
-          <button className="logout-btn" onClick={onLogout}>Log Out</button>
+          <button className="logout-btn" onClick={onLogout}>{isDemoMode ? 'Reset Demo' : 'Log Out'}</button>
         </div>
       </aside>
       

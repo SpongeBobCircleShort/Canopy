@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, Navigate, Route, Routes } from 'react-router-dom'
+import { Navigate, Route, Routes } from 'react-router-dom'
 
 import {
   createInvite,
@@ -15,74 +15,150 @@ import {
   fetchRegions,
   fetchSatelliteChanges,
   fetchSensors,
-  login,
   revokeInvite,
   runFusion,
-  signup,
   updateAlertStatus,
   uploadClip,
   uploadNdviCsv,
 } from './api.js'
 import DataIngestion from './components/DataIngestion.jsx'
 import Layout from './components/Layout.jsx'
-import LoginPage from './components/LoginPage.jsx'
 import Overview from './components/Overview.jsx'
 import Settings from './components/Settings.jsx'
+import { freshDemoState } from './demoData.js'
+
+function nextId(items) {
+  return Math.max(0, ...items.map((item) => Number(item.id) || 0)) + 1
+}
+
+function nowIso() {
+  return new Date().toISOString()
+}
+
+function labelFromFile(file) {
+  const name = file?.name?.toLowerCase() || ''
+  if (name.includes('gun')) return 'gunshot'
+  if (name.includes('vehicle') || name.includes('truck') || name.includes('motor')) return 'vehicle'
+  if (name.includes('fire')) return 'fire_crackle'
+  if (name.includes('chain') || name.includes('saw')) return 'chainsaw'
+  return 'chainsaw'
+}
+
+function csvValue(value) {
+  const text = value === undefined || value === null ? '' : String(value)
+  return /[",\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text
+}
+
+function alertsToCsv(alerts) {
+  const columns = [
+    'id',
+    'type',
+    'status',
+    'priority',
+    'description',
+    'latitude',
+    'longitude',
+    'sensor_id',
+    'created_at',
+    'classifier_label',
+    'classifier_confidence',
+    'fusion_score',
+    'acoustic_alert_id',
+    'satellite_change_id',
+  ]
+  const rows = alerts.map((alert) => ({
+    id: alert.id,
+    type: alert.type,
+    status: alert.status,
+    priority: alert.priority,
+    description: alert.description,
+    latitude: alert.location?.lat,
+    longitude: alert.location?.lon,
+    sensor_id: alert.sensor_id,
+    created_at: alert.created_at,
+    classifier_label: alert.classifier_label,
+    classifier_confidence: alert.classifier_confidence,
+    fusion_score: alert.metadata?.fusion_score,
+    acoustic_alert_id: alert.metadata?.acoustic_alert_id,
+    satellite_change_id: alert.metadata?.satellite_change_id,
+  }))
+  return [columns.join(','), ...rows.map((row) => columns.map((column) => csvValue(row[column])).join(','))].join('\n')
+}
 
 export default function DashboardApp() {
-  const [health, setHealth] = useState({ status: 'loading' })
-  const [alerts, setAlerts] = useState([])
-  const [sensors, setSensors] = useState([])
-  const [regions, setRegions] = useState([])
-  const [satelliteChanges, setSatelliteChanges] = useState([])
+  const initialDemo = freshDemoState()
+  const [health, setHealth] = useState({ status: 'demo' })
+  const [alerts, setAlerts] = useState(initialDemo.alerts)
+  const [sensors, setSensors] = useState(initialDemo.sensors)
+  const [regions, setRegions] = useState(initialDemo.regions)
+  const [satelliteChanges, setSatelliteChanges] = useState(initialDemo.satelliteChanges)
   const [fusionResult, setFusionResult] = useState(null)
-  const [ndviBatches, setNdviBatches] = useState([])
+  const [ndviBatches, setNdviBatches] = useState(initialDemo.ndviBatches)
   const [ndviUploadResult, setNdviUploadResult] = useState(null)
-  const [profile, setProfile] = useState(null)
-  const [invites, setInvites] = useState([])
+  const [profile, setProfile] = useState(initialDemo.profile)
+  const [invites, setInvites] = useState(initialDemo.invites)
   const [token, setToken] = useState(() => window.localStorage.getItem('canopy_token') || '')
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const [isSimulating, setIsSimulating] = useState(false)
 
-  const isAuthenticated = Boolean(token)
+  const hasApiSession = Boolean(token)
+  const isAuthenticated = true
   const isAdmin = profile?.role === 'admin'
 
-  async function refreshData(nextToken = token) {
-    const healthResult = await fetchHealth()
-    setHealth(healthResult)
+  function resetDemoState() {
+    const demo = freshDemoState()
+    setAlerts(demo.alerts)
+    setSensors(demo.sensors)
+    setRegions(demo.regions)
+    setSatelliteChanges(demo.satelliteChanges)
+    setNdviBatches(demo.ndviBatches)
+    setProfile(demo.profile)
+    setInvites(demo.invites)
+    setFusionResult(null)
+    setNdviUploadResult(null)
+    setHealth({ status: 'demo' })
+  }
 
+  async function refreshData(nextToken = token) {
     if (!nextToken) {
-      setAlerts([])
-      setSensors([])
-      setRegions([])
-      setProfile(null)
-      setInvites([])
-      setSatelliteChanges([])
-      setNdviBatches([])
+      try {
+        setHealth(await fetchHealth())
+      } catch {
+        setHealth({ status: 'demo' })
+      }
       return
     }
 
-    const profileResult = await fetchMe(nextToken)
-    const [alertsResult, sensorsResult, regionsResult, satelliteChangesResult, ndviBatchesResult, invitesResult] =
-      await Promise.all([
-        fetchAlerts(nextToken),
-        fetchSensors(nextToken),
-        fetchRegions(nextToken),
-        fetchSatelliteChanges(nextToken),
-        fetchNdviBatches(nextToken),
-        profileResult.role === 'admin' && profileResult.org_id
-          ? fetchInvites(nextToken, profileResult.org_id)
-          : Promise.resolve([]),
-      ])
+    try {
+      const healthResult = await fetchHealth()
+      setHealth(healthResult)
+      const profileResult = await fetchMe(nextToken)
+      const [alertsResult, sensorsResult, regionsResult, satelliteChangesResult, ndviBatchesResult, invitesResult] =
+        await Promise.all([
+          fetchAlerts(nextToken),
+          fetchSensors(nextToken),
+          fetchRegions(nextToken),
+          fetchSatelliteChanges(nextToken),
+          fetchNdviBatches(nextToken),
+          profileResult.role === 'admin' && profileResult.org_id
+            ? fetchInvites(nextToken, profileResult.org_id)
+            : Promise.resolve([]),
+        ])
 
-    setProfile(profileResult)
-    setAlerts(alertsResult)
-    setSensors(sensorsResult)
-    setRegions(regionsResult)
-    setSatelliteChanges(satelliteChangesResult)
-    setNdviBatches(ndviBatchesResult)
-    setInvites(invitesResult)
+      setProfile(profileResult)
+      setAlerts(alertsResult)
+      setSensors(sensorsResult)
+      setRegions(regionsResult)
+      setSatelliteChanges(satelliteChangesResult)
+      setNdviBatches(ndviBatchesResult)
+      setInvites(invitesResult)
+    } catch {
+      window.localStorage.removeItem('canopy_token')
+      setToken('')
+      resetDemoState()
+      setMessage('Showing public demo dashboard. API data is not connected.')
+    }
   }
 
   useEffect(() => {
@@ -115,38 +191,28 @@ export default function DashboardApp() {
     return () => clearInterval(interval)
   }, [isSimulating])
 
-  function persistToken(nextToken) {
-    setToken(nextToken)
-    window.localStorage.setItem('canopy_token', nextToken)
-  }
-
-  async function handleAuth(mode, payload) {
-    setError('')
-    setMessage('')
-    const result = mode === 'signup' ? await signup(payload) : await login(payload)
-    persistToken(result.access_token)
-    setMessage(`${mode === 'signup' ? 'Signed up' : 'Logged in'} successfully.`)
-    await refreshData(result.access_token)
-  }
-
   function handleLogout() {
     setToken('')
     window.localStorage.removeItem('canopy_token')
-    setAlerts([])
-    setSensors([])
-    setRegions([])
-    setSatelliteChanges([])
-    setNdviBatches([])
-    setNdviUploadResult(null)
-    setProfile(null)
-    setInvites([])
-    setFusionResult(null)
+    resetDemoState()
     setIsSimulating(false)
-    setMessage('Logged out.')
+    setMessage('Public demo dashboard reset.')
   }
 
   async function handleCreateInvite(payload) {
     setError('')
+    if (!hasApiSession) {
+      const invite = {
+        id: nextId(invites),
+        email: payload.email,
+        role: payload.role || 'member',
+        status: 'pending',
+        token: `demo-invite-${nextId(invites)}`,
+      }
+      setInvites((current) => [invite, ...current])
+      setMessage(`Created demo invite for ${invite.email}. Token: ${invite.token}`)
+      return
+    }
     const invite = await createInvite(token, profile.org_id, payload)
     setMessage(`Created invite for ${invite.email}. Token: ${invite.token}`)
     await refreshData()
@@ -154,6 +220,11 @@ export default function DashboardApp() {
 
   async function handleRevokeInvite(inviteId) {
     setError('')
+    if (!hasApiSession) {
+      setInvites((current) => current.map((invite) => (invite.id === inviteId ? { ...invite, status: 'revoked' } : invite)))
+      setMessage(`Revoked demo invite ${inviteId}.`)
+      return
+    }
     await revokeInvite(token, profile.org_id, inviteId)
     setMessage(`Revoked invite ${inviteId}.`)
     await refreshData()
@@ -161,6 +232,20 @@ export default function DashboardApp() {
 
   async function handleCreateRegion(payload) {
     setError('')
+    if (!hasApiSession) {
+      const region = {
+        id: nextId(regions),
+        org_id: profile.org_id,
+        name: payload.name,
+        description: payload.description || null,
+        boundary: payload.boundary || null,
+        created_at: nowIso(),
+        updated_at: nowIso(),
+      }
+      setRegions((current) => [region, ...current])
+      setMessage(`Created demo region ${region.name}.`)
+      return
+    }
     const region = await createRegion(token, payload)
     setMessage(`Created region ${region.name}.`)
     await refreshData()
@@ -168,6 +253,21 @@ export default function DashboardApp() {
 
   async function handleCreateSensor(payload) {
     setError('')
+    if (!hasApiSession) {
+      const sensor = {
+        id: nextId(sensors),
+        org_id: profile.org_id,
+        region_id: payload.region_id || null,
+        name: payload.name,
+        device_type: payload.device_type,
+        location: payload.location,
+        status: 'online',
+        last_heard_at: nowIso(),
+      }
+      setSensors((current) => [sensor, ...current])
+      setMessage(`Created demo sensor ${sensor.name}.`)
+      return
+    }
     const sensor = await createSensor(token, payload)
     setMessage(`Created sensor ${sensor.name}.`)
     await refreshData()
@@ -175,6 +275,31 @@ export default function DashboardApp() {
 
   async function handleUploadClip(payload) {
     setError('')
+    if (!hasApiSession) {
+      const sensor = sensors.find((item) => String(item.id) === String(payload.sensorId)) || sensors[0]
+      if (!sensor) throw new Error('Create a sensor before uploading a clip.')
+      const label = labelFromFile(payload.file)
+      const alert = {
+        id: nextId(alerts),
+        org_id: profile.org_id,
+        type: 'audio',
+        status: 'open',
+        priority: label === 'background_unknown' ? 'low' : 'high',
+        description: `Audio classifier detected '${label}' with 82% confidence.`,
+        location: sensor.location,
+        sensor_id: sensor.id,
+        region_id: sensor.region_id,
+        classifier_label: label,
+        classifier_confidence: 0.82,
+        classifier_model_version: 'placeholder-v0',
+        metadata: {},
+        created_at: nowIso(),
+        updated_at: nowIso(),
+      }
+      setAlerts((current) => [alert, ...current])
+      setMessage(`Uploaded demo clip; generated alert ${alert.id}.`)
+      return
+    }
     const result = await uploadClip(token, payload)
     setMessage(`Uploaded clip ${result.clip_id}; generated alert ${result.generated_alert?.id}.`)
     await refreshData()
@@ -182,6 +307,26 @@ export default function DashboardApp() {
 
   async function handleCreateSatelliteChange(payload) {
     setError('')
+    if (!hasApiSession) {
+      const change = {
+        id: nextId(satelliteChanges),
+        org_id: profile.org_id,
+        region_id: payload.region_id || null,
+        source: payload.source || 'manual',
+        change_type: payload.change_type,
+        severity_score: payload.severity_score,
+        confidence: payload.confidence,
+        latitude: payload.latitude,
+        longitude: payload.longitude,
+        description: payload.description || 'Manual demo satellite change',
+        metadata: {},
+        created_at: nowIso(),
+        updated_at: nowIso(),
+      }
+      setSatelliteChanges((current) => [change, ...current])
+      setMessage(`Created demo satellite change ${change.id}.`)
+      return
+    }
     const change = await createSatelliteChange(token, payload)
     setMessage(`Created satellite change ${change.id}.`)
     await refreshData()
@@ -189,6 +334,52 @@ export default function DashboardApp() {
 
   async function handleUploadNdviCsv(payload) {
     setError('')
+    if (!hasApiSession) {
+      const regionId = payload.regionId ? Number(payload.regionId) : regions[0]?.id || null
+      const sensor = sensors[0]
+      const firstChangeId = nextId(satelliteChanges)
+      const newChanges = [0, 1, 2].map((offset) => ({
+        id: firstChangeId + offset,
+        org_id: profile.org_id,
+        region_id: regionId,
+        source: 'csv_ndvi',
+        change_type: 'ndvi_drop',
+        severity_score: 0.48 + offset * 0.06,
+        confidence: 0.86,
+        latitude: (sensor?.location.lat || -3.4653) + offset * 0.0004,
+        longitude: (sensor?.location.lon || -62.2159) - offset * 0.0004,
+        description: `Demo NDVI drop row ${offset + 1}`,
+        metadata: { baseline_ndvi: 0.72, recent_ndvi: 0.48 - offset * 0.03, ndvi_delta: -0.24 - offset * 0.03 },
+        created_at: nowIso(),
+        updated_at: nowIso(),
+      }))
+      const result = {
+        batch_id: nextId(ndviBatches),
+        status: 'processed',
+        row_count: 6,
+        created_change_count: newChanges.length,
+        skipped_count: 3,
+        created_satellite_change_ids: newChanges.map((change) => change.id),
+      }
+      setSatelliteChanges((current) => [...newChanges, ...current])
+      setNdviBatches((current) => [
+        {
+          id: result.batch_id,
+          org_id: profile.org_id,
+          region_id: regionId,
+          source_type: 'csv',
+          filename: payload.file?.name || 'demo-ndvi.csv',
+          status: 'processed',
+          row_count: result.row_count,
+          created_change_count: result.created_change_count,
+          created_at: nowIso(),
+        },
+        ...current,
+      ])
+      setNdviUploadResult(result)
+      setMessage(`Processed demo NDVI batch ${result.batch_id}: ${result.created_change_count} satellite change(s) created.`)
+      return
+    }
     const result = await uploadNdviCsv(token, payload)
     setNdviUploadResult(result)
     setMessage(
@@ -199,6 +390,43 @@ export default function DashboardApp() {
 
   async function handleRunFusion() {
     setError('')
+    if (!hasApiSession) {
+      const acousticAlert = alerts.find((alert) => alert.type === 'audio')
+      const satelliteChange = satelliteChanges[0]
+      if (!acousticAlert || !satelliteChange) {
+        setFusionResult({ created_count: 0, matched_count: 0, alerts: [] })
+        setMessage('Fusion completed: no acoustic/satellite matches found.')
+        return
+      }
+      const fusionAlert = {
+        ...acousticAlert,
+        id: nextId(alerts),
+        type: 'fusion',
+        status: 'open',
+        priority: 'medium',
+        description: `Fusion alert: acoustic evidence '${acousticAlert.classifier_label || 'audio'}' matched satellite change '${satelliteChange.change_type}' within 16m.`,
+        metadata: {
+          acoustic_alert_id: acousticAlert.id,
+          satellite_change_id: satelliteChange.id,
+          acoustic_confidence: acousticAlert.classifier_confidence || 0,
+          acoustic_confidence_threshold: 0.65,
+          acoustic_suppressed: false,
+          acoustic_weight: 0.45,
+          satellite_severity_score: satelliteChange.severity_score,
+          satellite_confidence: satelliteChange.confidence,
+          distance_meters: 15.71,
+          fusion_score: 0.637,
+          fusion_scoring_mode: 'acoustic_satellite',
+          fusion_rule_version: 'rule-fusion-v1',
+        },
+        created_at: nowIso(),
+        updated_at: nowIso(),
+      }
+      setAlerts((current) => [fusionAlert, ...current])
+      setFusionResult({ created_count: 1, matched_count: 1, alerts: [fusionAlert] })
+      setMessage('Fusion completed: 1 alert created from 1 match.')
+      return
+    }
     const result = await runFusion(token, {
       time_window_days: 14,
       distance_meters: 500,
@@ -216,13 +444,18 @@ export default function DashboardApp() {
 
   async function handleUpdateAlertStatus(alertId, status) {
     setError('')
+    if (!hasApiSession) {
+      setAlerts((current) => current.map((alert) => (alert.id === alertId ? { ...alert, status, updated_at: nowIso() } : alert)))
+      setMessage(`Updated demo alert ${alertId} to ${status}.`)
+      return
+    }
     await updateAlertStatus(token, alertId, { status })
     setMessage(`Updated alert ${alertId} to ${status}.`)
     await refreshData()
   }
 
   async function handleExportAlerts() {
-    const blob = await downloadAlertsCsv(token)
+    const blob = hasApiSession ? await downloadAlertsCsv(token) : new Blob([alertsToCsv(alerts)], { type: 'text/csv' })
     const url = window.URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
@@ -231,20 +464,9 @@ export default function DashboardApp() {
     window.URL.revokeObjectURL(url)
   }
 
-  if (!isAuthenticated) {
-    return (
-      <div className="dashboard-auth-wrap">
-        <Link className="landing-back-link" to="/">
-          ← Back to Canopy
-        </Link>
-        <LoginPage onAuth={handleAuth} error={error} message={message} />
-      </div>
-    )
-  }
-
   return (
     <Routes>
-      <Route path="/" element={<Layout profile={profile} onLogout={handleLogout} health={health} message={message} error={error} />}>
+      <Route path="/" element={<Layout profile={profile} onLogout={handleLogout} health={health} message={message} error={error} isDemoMode={!hasApiSession} />}>
         <Route
           index
           element={

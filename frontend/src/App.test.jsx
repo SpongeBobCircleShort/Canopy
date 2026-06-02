@@ -106,6 +106,16 @@ describe('App', () => {
     expect(screen.getByText(/Run 14-day\/500m rule/i)).toBeInTheDocument()
   })
 
+  it('opens the dashboard without an auth gate', async () => {
+    renderAt('/app')
+
+    expect(await screen.findByRole('heading', { name: /Global Overview/i })).toBeInTheDocument()
+    expect(screen.getByTestId('map')).toBeInTheDocument()
+    expect(screen.queryByText(/Authenticate/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Sign up/i)).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Reset Demo/i })).toBeInTheDocument()
+  })
+
   it('can navigate to settings page', async () => {
     window.localStorage.setItem('canopy_token', 'demo-token')
     renderAt('/app')
