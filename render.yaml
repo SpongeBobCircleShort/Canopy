@@ -7,7 +7,7 @@ services:
     plan: free
     envVars:
       - key: DATABASE_URL
-        value: postgresql://postgres:Chomu%402BA8E41S@db.tspmibkplwonyombotgy.supabase.co:5432/postgres
+        sync: false
       - key: JWT_SECRET
         generateValue: true
       - key: AUDIO_STORAGE_PATH
