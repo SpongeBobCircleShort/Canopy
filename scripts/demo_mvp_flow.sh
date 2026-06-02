@@ -8,6 +8,7 @@ DEMO_ORG="${DEMO_ORG:-Canopy Demo Org}"
 OUTPUT_DIR="${OUTPUT_DIR:-demo-output}"
 CSV_PATH="$OUTPUT_DIR/canopy-alerts-with-fusion.csv"
 NDVI_SAMPLE_CSV="${NDVI_SAMPLE_CSV:-docs/sample-data/ndvi_sample.csv}"
+NDVI_RUNTIME_CSV="$OUTPUT_DIR/ndvi_sample_current_window.csv"
 
 mkdir -p "$OUTPUT_DIR"
 
@@ -65,12 +66,43 @@ if [[ ! -f "$NDVI_SAMPLE_CSV" ]]; then
   echo "NDVI sample CSV not found: $NDVI_SAMPLE_CSV" >&2
   exit 1
 fi
+
+python - "$NDVI_SAMPLE_CSV" "$NDVI_RUNTIME_CSV" <<'PY'
+import csv
+import sys
+from datetime import datetime, timedelta, timezone
+
+source_path, output_path = sys.argv[1], sys.argv[2]
+now = datetime.now(timezone.utc).replace(microsecond=0)
+date_values = {
+    "baseline_start": now - timedelta(days=35),
+    "baseline_end": now - timedelta(days=21),
+    "observation_start": now - timedelta(days=7),
+    "observation_end": now,
+}
+
+with open(source_path, newline="") as source:
+    reader = csv.DictReader(source)
+    rows = list(reader)
+    fieldnames = reader.fieldnames or []
+
+for row in rows:
+    for key, value in date_values.items():
+        if key in row:
+            row[key] = value.isoformat().replace("+00:00", "Z")
+
+with open(output_path, "w", newline="") as output:
+    writer = csv.DictWriter(output, fieldnames=fieldnames)
+    writer.writeheader()
+    writer.writerows(rows)
+PY
+
 NDVI_RESPONSE=$(curl -fsS -X POST "$API_BASE_URL/api/ndvi/upload-csv" \
   -H "Authorization: Bearer $TOKEN" \
   -F "region_id=$REGION_ID" \
   -F 'loss_threshold=-0.15' \
   -F 'default_confidence=0.75' \
-  -F "file=@$NDVI_SAMPLE_CSV;type=text/csv")
+  -F "file=@$NDVI_RUNTIME_CSV;type=text/csv")
 NDVI_BATCH_ID=$(printf '%s' "$NDVI_RESPONSE" | json_get 'data["batch_id"]')
 SATELLITE_CHANGE_IDS=$(printf '%s' "$NDVI_RESPONSE" | python -c 'import json,sys; print(",".join(str(x) for x in json.load(sys.stdin)["created_satellite_change_ids"]))')
 SATELLITE_CHANGE_ID=$(printf '%s' "$NDVI_RESPONSE" | json_get 'data["created_satellite_change_ids"][0]')
