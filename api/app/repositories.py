@@ -648,6 +648,7 @@ def _satellite_change_from_row(row: Any) -> SatelliteChangeResponse:
         baseline_end=_coerce_datetime(_row_get(row, "baseline_end")),
         observation_start=_coerce_datetime(_row_get(row, "observation_start")),
         observation_end=_coerce_datetime(_row_get(row, "observation_end")),
+        image_date=_coerce_datetime(_row_get(row, "image_date")),
         description=_row_get(row, "description"),
         latitude=_row_get(row, "latitude"),
         longitude=_row_get(row, "longitude"),
@@ -666,10 +667,10 @@ def create_satellite_change(org_id: int, payload: SatelliteChangeCreate) -> Sate
                 """
                 INSERT INTO satellite_change_events (
                     org_id, region_id, source, change_type, severity_score, confidence,
-                    baseline_start, baseline_end, observation_start, observation_end,
+                    baseline_start, baseline_end, observation_start, observation_end, image_date,
                     description, latitude, longitude, geometry_geojson, metadata
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     org_id, payload.region_id, payload.source.value, payload.change_type.value,
@@ -678,12 +679,19 @@ def create_satellite_change(org_id: int, payload: SatelliteChangeCreate) -> Sate
                     payload.baseline_end.isoformat() if payload.baseline_end else None,
                     payload.observation_start.isoformat() if payload.observation_start else None,
                     payload.observation_end.isoformat() if payload.observation_end else None,
+                    payload.image_date.isoformat() if payload.image_date else None,
                     payload.description, payload.latitude, payload.longitude, payload.geometry,
                     json.dumps(payload.metadata or {}),
                 ),
             )
             row = conn.execute(
-                "SELECT id, org_id, region_id, source, change_type, severity_score, confidence, baseline_start, baseline_end, observation_start, observation_end, description, latitude, longitude, geometry_geojson AS geometry, metadata, created_at, updated_at FROM satellite_change_events WHERE id = ?",
+                """
+                SELECT id, org_id, region_id, source, change_type, severity_score, confidence,
+                       baseline_start, baseline_end, observation_start, observation_end, image_date,
+                       description, latitude, longitude, geometry_geojson AS geometry,
+                       metadata, created_at, updated_at
+                FROM satellite_change_events WHERE id = ?
+                """,
                 (cursor.lastrowid,),
             ).fetchone()
         else:
@@ -691,13 +699,13 @@ def create_satellite_change(org_id: int, payload: SatelliteChangeCreate) -> Sate
                 """
                 INSERT INTO satellite_change_events (
                     org_id, region_id, source, change_type, severity_score, confidence,
-                    baseline_start, baseline_end, observation_start, observation_end,
+                    baseline_start, baseline_end, observation_start, observation_end, image_date,
                     description, latitude, longitude, geometry, metadata
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
                         CASE WHEN %s IS NULL THEN NULL ELSE ST_SetSRID(ST_GeomFromGeoJSON(%s), 4326) END, %s)
                 RETURNING id, org_id, region_id, source, change_type, severity_score, confidence,
-                          baseline_start, baseline_end, observation_start, observation_end,
+                          baseline_start, baseline_end, observation_start, observation_end, image_date,
                           description, latitude, longitude,
                           CASE WHEN geometry IS NULL THEN NULL ELSE ST_AsGeoJSON(geometry) END AS geometry,
                           metadata, created_at, updated_at
@@ -705,7 +713,7 @@ def create_satellite_change(org_id: int, payload: SatelliteChangeCreate) -> Sate
                 (
                     org_id, payload.region_id, payload.source.value, payload.change_type.value,
                     payload.severity_score, payload.confidence, payload.baseline_start, payload.baseline_end,
-                    payload.observation_start, payload.observation_end, payload.description,
+                    payload.observation_start, payload.observation_end, payload.image_date, payload.description,
                     payload.latitude, payload.longitude, payload.geometry, payload.geometry,
                     json.dumps(payload.metadata or {}),
                 ),
@@ -719,11 +727,17 @@ def list_satellite_changes(org_id: int, region_id: int | None = None) -> list[Sa
     with connection() as conn:
         placeholder = "?" if is_sqlite() else "%s"
         if is_sqlite():
-            sql = "SELECT id, org_id, region_id, source, change_type, severity_score, confidence, baseline_start, baseline_end, observation_start, observation_end, description, latitude, longitude, geometry_geojson AS geometry, metadata, created_at, updated_at FROM satellite_change_events WHERE org_id = ?"
+            sql = """
+                SELECT id, org_id, region_id, source, change_type, severity_score, confidence,
+                       baseline_start, baseline_end, observation_start, observation_end, image_date,
+                       description, latitude, longitude, geometry_geojson AS geometry,
+                       metadata, created_at, updated_at
+                FROM satellite_change_events WHERE org_id = ?
+            """
         else:
             sql = """
                 SELECT id, org_id, region_id, source, change_type, severity_score, confidence,
-                       baseline_start, baseline_end, observation_start, observation_end,
+                       baseline_start, baseline_end, observation_start, observation_end, image_date,
                        description, latitude, longitude,
                        CASE WHEN geometry IS NULL THEN NULL ELSE ST_AsGeoJSON(geometry) END AS geometry,
                        metadata, created_at, updated_at

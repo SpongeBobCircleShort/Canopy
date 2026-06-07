@@ -56,6 +56,14 @@ export async function createSatelliteChange(token, payload) {
   })
 }
 
+export async function ingestSentinel(token, payload) {
+  return request('/api/satellite-changes/ingest-sentinel', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders(token) },
+    body: JSON.stringify(payload),
+  })
+}
+
 export async function runFusion(token, payload = {}) {
   return request('/api/fusion/run', {
     method: 'POST',

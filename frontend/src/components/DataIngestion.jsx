@@ -1,6 +1,6 @@
 import { useState } from 'react'
-
 import ToastStack from './ToastStack.jsx'
+import SentinelIngestCard from './SentinelIngestCard.jsx'
 
 const CHANGE_TYPES = ['ndvi_drop', 'canopy_loss', 'vegetation_stress', 'burn_scar', 'unknown']
 
@@ -21,7 +21,8 @@ export default function DataIngestion({
   onUploadNdviCsv,
   onCreateSatelliteChange,
   onRunFusion,
-  onExportAlerts
+  onExportAlerts,
+  onIngestSentinel
 }) {
   const [clipForm, setClipForm] = useState({ sensorId: '', file: null })
   const [ndviForm, setNdviForm] = useState({ regionId: '', lossThreshold: '-0.15', defaultConfidence: '0.75', file: null })
@@ -30,11 +31,23 @@ export default function DataIngestion({
     severity_score: '0.7', confidence: '0.8', latitude: '', longitude: '', description: ''
   })
   
+  const [fusionForm, setFusionForm] = useState({
+    time_decay_halflife_days: '7.0',
+    spatial_sigma_meters: '200.0',
+  })
+  
   const [localError, setLocalError] = useState('')
+  const [localSuccess, setLocalSuccess] = useState('')
 
-  async function submitWithLocalError(action) {
+  async function submitWithLocalError(action, successMsg = '') {
     setLocalError('')
-    try { await action() } catch (err) { setLocalError(err.message) }
+    setLocalSuccess('')
+    try { 
+      await action() 
+      if (successMsg) setLocalSuccess(successMsg)
+    } catch (err) { 
+      setLocalError(err.message) 
+    }
   }
 
   return (
@@ -42,16 +55,21 @@ export default function DataIngestion({
       <header className="page-header">
         <h2>Data Ingestion & Fusion</h2>
         <div className="header-actions">
-          <button className="export-button" onClick={() => submitWithLocalError(onExportAlerts)} disabled={!isAdmin}>
+          <button className="export-button" onClick={() => submitWithLocalError(onExportAlerts, 'Alerts CSV exported successfully.')} disabled={!isAdmin}>
             Export CSV
           </button>
         </div>
       </header>
       
-      <ToastStack toasts={localError ? [{ id: `ingestion-error-${localError}`, type: 'error', message: localError }] : []} />
+      <ToastStack 
+        toasts={[
+          localError ? { id: `ingestion-error-${localError}`, type: 'error', message: localError } : null,
+          localSuccess ? { id: `ingestion-success-${localSuccess}`, type: 'success', message: localSuccess } : null,
+        ].filter(Boolean)} 
+      />
 
       <section className="workflow-grid">
-        <form className="control-card" onSubmit={(e) => { e.preventDefault(); submitWithLocalError(() => onUploadClip(clipForm)); }}>
+        <form className="control-card" onSubmit={(e) => { e.preventDefault(); submitWithLocalError(() => onUploadClip(clipForm), 'Audio clip uploaded successfully.'); }}>
           <h2>Upload audio clip</h2>
           <label>Sensor
             <select value={clipForm.sensorId} onChange={(e) => setClipForm({ ...clipForm, sensorId: e.target.value })} required>
@@ -65,7 +83,7 @@ export default function DataIngestion({
           <button type="submit" disabled={!isAuthenticated || !sensors.length}>Upload clip</button>
         </form>
 
-        <form className="control-card ndvi-card" onSubmit={(e) => { e.preventDefault(); submitWithLocalError(() => onUploadNdviCsv(ndviForm)); }}>
+        <form className="control-card ndvi-card" onSubmit={(e) => { e.preventDefault(); submitWithLocalError(() => onUploadNdviCsv(ndviForm), 'NDVI CSV processed successfully.'); }}>
           <h2>Upload NDVI CSV</h2>
           <label>Region
             <select value={ndviForm.regionId} onChange={(e) => setNdviForm({ ...ndviForm, regionId: e.target.value })}>
@@ -85,7 +103,14 @@ export default function DataIngestion({
           )}
         </form>
 
-        <form className="control-card satellite-card" onSubmit={(e) => { e.preventDefault(); submitWithLocalError(() => onCreateSatelliteChange({...satelliteForm, severity_score: Number(satelliteForm.severity_score), confidence: Number(satelliteForm.confidence), latitude: Number(satelliteForm.latitude), longitude: Number(satelliteForm.longitude)})); }}>
+        {/* Sentinel-2 STAC Ingestion UI Card */}
+        <SentinelIngestCard 
+          regions={regions} 
+          onIngestSentinel={onIngestSentinel} 
+          isAdmin={isAdmin} 
+        />
+
+        <form className="control-card satellite-card" onSubmit={(e) => { e.preventDefault(); submitWithLocalError(() => onCreateSatelliteChange({...satelliteForm, severity_score: Number(satelliteForm.severity_score), confidence: Number(satelliteForm.confidence), latitude: Number(satelliteForm.latitude), longitude: Number(satelliteForm.longitude)}), 'Satellite change created successfully.'); }}>
           <h2>Manual satellite change</h2>
           <label>Region
             <select value={satelliteForm.region_id} onChange={(e) => setSatelliteForm({ ...satelliteForm, region_id: e.target.value })}>
@@ -108,13 +133,42 @@ export default function DataIngestion({
         </form>
 
         <section className="control-card fusion-card">
-          <h2>Fusion Engine</h2>
-          <p className="card-help">Run 14-day/500m rule.</p>
-          <button type="button" disabled={!isAdmin} onClick={() => submitWithLocalError(onRunFusion)}>
+          <h2>Fusion Engine v2</h2>
+          <p className="card-help">Run spatiotemporal decay rule v2.</p>
+          <label>Time Decay Half-life (days)
+            <input 
+              type="number" 
+              step="0.1" 
+              min="0.1" 
+              value={fusionForm.time_decay_halflife_days} 
+              onChange={(e) => setFusionForm({ ...fusionForm, time_decay_halflife_days: e.target.value })} 
+            />
+          </label>
+          <label>Spatial Sigma (meters)
+            <input 
+              type="number" 
+              step="1" 
+              min="1" 
+              value={fusionForm.spatial_sigma_meters} 
+              onChange={(e) => setFusionForm({ ...fusionForm, spatial_sigma_meters: e.target.value })} 
+            />
+          </label>
+          <button 
+            type="button" 
+            disabled={!isAdmin} 
+            onClick={() => submitWithLocalError(() => onRunFusion({
+              time_decay_halflife_days: Number(fusionForm.time_decay_halflife_days),
+              spatial_sigma_meters: Number(fusionForm.spatial_sigma_meters)
+            }), 'Fusion execution complete.')}
+          >
             Run Fusion
           </button>
           {fusionResult && (
-            <p className="fusion-result">Created {fusionResult.created_count} alert(s); matched {fusionResult.matched_count} pair(s).</p>
+            <div style={{ marginTop: '12px' }} className="animate-fade-slide-up">
+              <p className="fusion-result" style={{ margin: 0, fontWeight: 500 }}>
+                Created {fusionResult.created_count} alert(s); matched {fusionResult.matched_count} pair(s).
+              </p>
+            </div>
           )}
         </section>
       </section>

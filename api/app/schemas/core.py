@@ -152,6 +152,7 @@ class Alert(AlertCreate):
 
 class SatelliteChangeSource(str, Enum):
     manual = "manual"
+    sentinel_2 = "sentinel_2"
     sentinel_stub = "sentinel_stub"
     landsat_stub = "landsat_stub"
     ndvi_stub = "ndvi_stub"
@@ -176,6 +177,7 @@ class SatelliteChangeCreate(BaseModel):
     baseline_end: datetime | None = None
     observation_start: datetime | None = None
     observation_end: datetime | None = None
+    image_date: datetime | None = None
     description: str | None = None
     latitude: float | None = Field(default=None, ge=-90, le=90)
     longitude: float | None = Field(default=None, ge=-180, le=180)
@@ -227,12 +229,51 @@ class NdviUploadResponse(BaseModel):
     skipped_count: int
 
 
+class SentinelIngestRequest(BaseModel):
+    region_id: int | None = None
+    bbox: list[float] = Field(
+        ...,
+        min_length=4,
+        max_length=4,
+        description="[min_lon, min_lat, max_lon, max_lat] in WGS-84",
+    )
+    baseline_start: datetime
+    baseline_end: datetime
+    observation_start: datetime
+    observation_end: datetime
+    max_cloud_cover: float = Field(default=10.0, ge=0.0, le=100.0)
+    loss_threshold: float = Field(default=-0.10, lt=0.0)
+    grid_resolution: int = Field(default=10, ge=1, le=100, description="Grid cells along each axis")
+
+
+class SentinelIngestResponse(BaseModel):
+    created_change_count: int
+    created_satellite_change_ids: list[int]
+    baseline_scene_count: int
+    observation_scene_count: int
+    grid_cells_evaluated: int
+    skipped_count: int
+
+
 class FusionRunRequest(BaseModel):
     region_id: int | None = None
     time_window_days: int = Field(default=14, ge=1, le=365)
     distance_meters: float = Field(default=500, gt=0)
     min_acoustic_confidence: float = Field(default=0.65, ge=0.0, le=1.0)
     min_satellite_severity: float = Field(default=0.3, ge=0.0, le=1.0)
+    # Spatiotemporal decay parameters (v2 engine)
+    time_decay_halflife_days: float = Field(
+        default=7.0,
+        gt=0,
+        description="Exponential half-life for temporal evidence decay (days). "
+                    "Evidence at exactly half-life days old receives 50% weight.",
+    )
+    spatial_sigma_meters: float = Field(
+        default=200.0,
+        gt=0,
+        description="Gaussian sigma for spatial proximity weighting (metres). "
+                    "Evidence at exactly sigma metres away receives ~60.7% weight.",
+    )
 
 
 class FusionRunResponse(BaseModel):

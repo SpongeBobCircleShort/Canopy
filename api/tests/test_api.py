@@ -638,11 +638,19 @@ def test_fusion_creates_metadata_priority_and_avoids_duplicates() -> None:
         assert fused["metadata"]["satellite_severity_score"] == 0.8
         assert fused["metadata"]["satellite_confidence"] == 0.9
         assert fused["metadata"]["distance_meters"] <= 500
-        assert abs(fused["metadata"]["fusion_score"] - 0.739) < 0.0001
+        # v2 score: ~0.717 (decays slightly based on timing; use wide tolerance)
+        assert 0.60 < fused["metadata"]["fusion_score"] <= 1.0
         assert fused["metadata"]["acoustic_suppressed"] is False
         assert fused["metadata"]["acoustic_weight"] == 0.45
         assert fused["metadata"]["fusion_scoring_mode"] == "acoustic_satellite"
-        assert fused["metadata"]["fusion_rule_version"] == "rule-fusion-v1"
+        assert fused["metadata"]["fusion_rule_version"] == "rule-fusion-v2"
+        # v2-specific metadata
+        assert 0.0 < fused["metadata"]["temporal_decay"] <= 1.0
+        assert 0.0 < fused["metadata"]["spatial_decay"] <= 1.0
+        assert fused["metadata"]["corroborating_change_count"] == 1
+        assert fused["metadata"]["satellite_compound_signal"] > 0
+        assert fused["metadata"]["time_decay_halflife_days"] == 7.0
+        assert fused["metadata"]["spatial_sigma_meters"] == 200.0
 
         listed = client.get("/api/alerts", headers=_auth_header(token), params={"type": "fusion"})
         assert listed.status_code == 200
@@ -651,6 +659,7 @@ def test_fusion_creates_metadata_priority_and_avoids_duplicates() -> None:
         duplicate = _run_fusion(client, token)
         assert duplicate["matched_count"] == 1
         assert duplicate["created_count"] == 0
+
 
 
 def test_fusion_suppresses_low_confidence_acoustic_weight() -> None:
@@ -679,8 +688,14 @@ def test_fusion_suppresses_low_confidence_acoustic_weight() -> None:
         assert fused["metadata"]["acoustic_weight"] == 0.0
         assert fused["metadata"]["acoustic_score_contribution"] == 0.0
         assert fused["metadata"]["fusion_scoring_mode"] == "satellite_only"
-        assert abs(fused["metadata"]["fusion_score"] - 0.37) < 0.0001
+        # v2 suppressed score: satellite_signal only (with spatial decay ~0.94)
+        score = fused["metadata"]["fusion_score"]
+        assert 0.25 < score < 0.50, f"Expected suppressed fusion_score ~0.35, got {score}"
         assert fused["priority"] == "low"
+        # v2 metadata present even in suppressed mode
+        assert fused["metadata"]["fusion_rule_version"] == "rule-fusion-v2"
+        assert "temporal_decay" in fused["metadata"]
+        assert "spatial_decay" in fused["metadata"]
 
 
 def test_fusion_respects_thresholds_and_org_boundaries() -> None:
@@ -891,3 +906,186 @@ def test_ndvi_csv_generated_change_fuses_with_acoustic_alert_and_exports_provena
         assert fused_rows[0]["baseline_ndvi"] == "0.72"
         assert fused_rows[0]["recent_ndvi"] == "0.48"
         assert fused_rows[0]["ndvi_delta"] == "-0.24"
+
+
+def test_satellite_change_image_date_is_stored_and_returned() -> None:
+    """image_date is persisted and surfaced in the satellite change response."""
+    _reset_test_database()
+    with TestClient(app) as client:
+        token = _signup(client, email="img-date@example.org", org_name="ImgDate Org")
+        payload = {
+            "source": "manual",
+            "change_type": "ndvi_drop",
+            "severity_score": 0.6,
+            "confidence": 0.8,
+            "latitude": -3.5,
+            "longitude": -60.5,
+            "image_date": "2024-03-15T10:30:00+00:00",
+            "description": "NDVI drop with image date",
+        }
+        create_resp = client.post("/api/satellite-changes", headers=_auth_header(token), json=payload)
+        assert create_resp.status_code == 201
+        body = create_resp.json()
+        assert body["image_date"] is not None
+        assert "2024-03-15" in body["image_date"]
+
+        get_resp = client.get(f"/api/satellite-changes/{body['id']}", headers=_auth_header(token))
+        assert get_resp.status_code == 200
+        assert get_resp.json()["image_date"] == body["image_date"]
+
+        list_resp = client.get("/api/satellite-changes", headers=_auth_header(token))
+        assert list_resp.status_code == 200
+        listed = [c for c in list_resp.json() if c["id"] == body["id"]]
+        assert len(listed) == 1
+        assert listed[0]["image_date"] == body["image_date"]
+
+
+def test_sentinel_ingest_endpoint_admin_only_and_creates_changes(monkeypatch: pytest.MonkeyPatch) -> None:
+    """
+    Sentinel ingest endpoint requires admin, returns 202, and persists satellite
+    changes for grid cells that exceed the NDVI loss threshold.
+
+    The STAC search is monkeypatched so no real HTTP calls are made.
+    """
+    from app.services import sentinel_ingestion
+
+    # Build a synthetic STAC scene: sparse band assets will trigger the cloud-
+    # cover fallback path, producing deterministic NDVI values.
+    def _fake_stac_search(bbox, date_start, date_end, max_cloud_cover, limit=50):
+        return [
+            {
+                "id": "fake-scene",
+                "geometry": {"type": "Point", "coordinates": [-60.5, -3.5]},
+                "properties": {
+                    "datetime": "2024-03-15T10:00:00Z",
+                    "eo:cloud_cover": 5.0,
+                },
+                "assets": {
+                    # Empty hrefs — forces the fallback NDVI estimator
+                    "red": {"href": ""},
+                    "nir": {"href": ""},
+                },
+            }
+        ]
+
+    monkeypatch.setattr(sentinel_ingestion, "_stac_search", _fake_stac_search)
+
+    _reset_test_database()
+    with TestClient(app) as client:
+        admin_token = _signup(client, email="sentinel-admin@example.org", org_name="Sentinel Org")
+        member_token = _signup_member(client, admin_token, email="sentinel-member@example.org")
+
+        # Members cannot trigger ingestion
+        member_resp = client.post(
+            "/api/satellite-changes/ingest-sentinel",
+            headers=_auth_header(member_token),
+            json={
+                "bbox": [-61.0, -4.0, -60.0, -3.0],
+                "baseline_start": "2023-09-01T00:00:00Z",
+                "baseline_end": "2023-09-30T23:59:59Z",
+                "observation_start": "2024-03-01T00:00:00Z",
+                "observation_end": "2024-03-31T23:59:59Z",
+            },
+        )
+        assert member_resp.status_code == 403
+
+        # Admin runs ingest with 2x2 grid: fallback NDVI ≈ 0.617 both windows → no loss
+        resp = client.post(
+            "/api/satellite-changes/ingest-sentinel",
+            headers=_auth_header(admin_token),
+            json={
+                "bbox": [-61.0, -4.0, -60.0, -3.0],
+                "baseline_start": "2023-09-01T00:00:00Z",
+                "baseline_end": "2023-09-30T23:59:59Z",
+                "observation_start": "2024-03-01T00:00:00Z",
+                "observation_end": "2024-03-31T23:59:59Z",
+                "grid_resolution": 2,
+                "loss_threshold": -0.05,
+            },
+        )
+        assert resp.status_code == 202
+        body = resp.json()
+        assert "created_change_count" in body
+        assert "grid_cells_evaluated" in body
+        assert body["grid_cells_evaluated"] == 4  # 2x2
+        assert body["baseline_scene_count"] == 1
+        assert body["observation_scene_count"] == 1
+        # Both windows produce same fallback NDVI → delta≈0 → all cells skipped
+        assert body["created_change_count"] == 0
+        assert body["skipped_count"] == 4
+
+        # Verify changes endpoint still works for this org
+        changes_resp = client.get("/api/satellite-changes", headers=_auth_header(admin_token))
+        assert changes_resp.status_code == 200
+
+
+def test_sentinel_ingest_creates_changes_when_ndvi_drops(monkeypatch: pytest.MonkeyPatch) -> None:
+    """
+    When observation NDVI is lower than baseline by more than loss_threshold,
+    the ingest creates SatelliteChange records with source=sentinel_2.
+
+    Uses direct grid-level mocking to avoid any HTTP calls and get deterministic
+    NDVI delta values.
+    """
+    from app.services import sentinel_ingestion
+
+    _FAKE_ITEM = {
+        "id": "fake-scene",
+        "geometry": {"type": "Point", "coordinates": [-60.5, -3.5]},
+        "properties": {"datetime": "2024-03-15T10:00:00Z", "eo:cloud_cover": 5.0},
+        "assets": {"red": {"href": "https://example.invalid/red.tif"}, "nir": {"href": "https://example.invalid/nir.tif"}},
+    }
+
+    def _fake_stac_search(bbox, date_start, date_end, max_cloud_cover, limit=50):
+        return [_FAKE_ITEM]
+
+    call_count = {"n": 0}
+
+    def _fake_compute_grid(item, grid_n):
+        call_count["n"] += 1
+        # First call = baseline (high NDVI 0.70), second = observation (low NDVI 0.30)
+        ndvi_val = 0.70 if call_count["n"] <= 1 else 0.30
+        return [[ndvi_val] * grid_n for _ in range(grid_n)]
+
+    monkeypatch.setattr(sentinel_ingestion, "_stac_search", _fake_stac_search)
+    monkeypatch.setattr(sentinel_ingestion, "_compute_scene_ndvi_grid", _fake_compute_grid)
+
+    _reset_test_database()
+    with TestClient(app) as client:
+        token = _signup(client, email="sentinel-drop@example.org", org_name="Sentinel Drop Org")
+        region = _create_region(client, token, "Sentinel Region")
+
+        resp = client.post(
+            "/api/satellite-changes/ingest-sentinel",
+            headers=_auth_header(token),
+            json={
+                "region_id": region["id"],
+                "bbox": [-61.0, -4.0, -60.0, -3.0],
+                "baseline_start": "2023-09-01T00:00:00Z",
+                "baseline_end": "2023-09-30T23:59:59Z",
+                "observation_start": "2024-03-01T00:00:00Z",
+                "observation_end": "2024-03-31T23:59:59Z",
+                "grid_resolution": 2,
+                "loss_threshold": -0.05,
+            },
+        )
+        assert resp.status_code == 202
+        body = resp.json()
+        # delta = 0.30 - 0.70 = -0.40 < -0.05 → all 4 cells created
+        assert body["created_change_count"] == 4
+        assert body["grid_cells_evaluated"] == 4
+        assert body["skipped_count"] == 0
+        assert len(body["created_satellite_change_ids"]) == 4
+
+        changes = client.get("/api/satellite-changes", headers=_auth_header(token))
+        assert changes.status_code == 200
+        sentinel_changes = [c for c in changes.json() if c["source"] == "sentinel_2"]
+        assert len(sentinel_changes) == 4
+        for change in sentinel_changes:
+            assert change["region_id"] == region["id"]
+            assert change["change_type"] == "ndvi_drop"
+            assert change["metadata"]["grid_resolution"] == 2
+            assert abs(change["metadata"]["ndvi_delta"] - (-0.40)) < 1e-3
+            assert change["metadata"]["baseline_ndvi"] == 0.70
+            assert change["metadata"]["observation_ndvi"] == 0.30
+

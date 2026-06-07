@@ -16,10 +16,44 @@ export default function Settings({
   const [sensorForm, setSensorForm] = useState({ name: '', device_type: 'forest-listening-unit', region_id: '', lat: '', lon: '' })
   
   const [localError, setLocalError] = useState('')
+  const [localSuccess, setLocalSuccess] = useState('')
 
-  async function submitWithLocalError(action) {
+  async function submitWithLocalError(action, successMsg = '') {
     setLocalError('')
-    try { await action() } catch (err) { setLocalError(err.message) }
+    setLocalSuccess('')
+    try { 
+      await action() 
+      if (successMsg) setLocalSuccess(successMsg)
+    } catch (err) { 
+      setLocalError(err.message) 
+    }
+  }
+
+  const handleSensorSubmit = (e) => {
+    e.preventDefault()
+    setLocalError('')
+    setLocalSuccess('')
+    
+    const latNum = Number(sensorForm.lat)
+    const lonNum = Number(sensorForm.lon)
+    
+    if (isNaN(latNum) || latNum < -90 || latNum > 90) {
+      setLocalError('Latitude must be a valid number between -90 and 90.')
+      return
+    }
+    if (isNaN(lonNum) || lonNum < -180 || lonNum > 180) {
+      setLocalError('Longitude must be a valid number between -180 and 180.')
+      return
+    }
+    
+    submitWithLocalError(
+      () => onCreateSensor({
+        ...sensorForm,
+        region_id: sensorForm.region_id ? Number(sensorForm.region_id) : null,
+        location: { lat: latNum, lon: lonNum }
+      }),
+      'Sensor created successfully.'
+    )
   }
 
   return (
@@ -28,10 +62,15 @@ export default function Settings({
         <h2>Configuration & Settings</h2>
       </header>
       
-      <ToastStack toasts={localError ? [{ id: `settings-error-${localError}`, type: 'error', message: localError }] : []} />
+      <ToastStack 
+        toasts={[
+          localError ? { id: `settings-error-${localError}`, type: 'error', message: localError } : null,
+          localSuccess ? { id: `settings-success-${localSuccess}`, type: 'success', message: localSuccess } : null,
+        ].filter(Boolean)} 
+      />
 
       <section className="workflow-grid">
-        <form className="control-card" onSubmit={(e) => { e.preventDefault(); submitWithLocalError(() => onCreateInvite(inviteForm)); }}>
+        <form className="control-card glass-card" onSubmit={(e) => { e.preventDefault(); submitWithLocalError(() => onCreateInvite(inviteForm), 'Invite sent successfully.'); }}>
           <h2>Invite member</h2>
           <label>Email
             <input type="email" value={inviteForm.email} onChange={(e) => setInviteForm({ ...inviteForm, email: e.target.value })} required />
@@ -45,10 +84,10 @@ export default function Settings({
           {isAdmin && invites?.length > 0 && (
             <div className="invite-list" style={{ marginTop: 16 }}>
               {invites.map((invite) => (
-                <article key={invite.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, fontSize: '0.85rem' }}>
+                <article key={invite.id} style={{ display: 'flex', justifycontent: 'space-between', alignItems: 'center', marginBottom: 8, fontSize: '0.85rem' }}>
                   <span><strong>{invite.email}</strong> ({invite.status})</span>
                   {invite.status === 'pending' && (
-                    <button type="button" style={{ width: 'auto', padding: '4px 8px', fontSize: '0.7rem' }} onClick={() => submitWithLocalError(() => onRevokeInvite(invite.id))}>Revoke</button>
+                    <button type="button" style={{ width: 'auto', padding: '4px 8px', fontSize: '0.7rem' }} onClick={() => submitWithLocalError(() => onRevokeInvite(invite.id), 'Invite revoked.')}>Revoke</button>
                   )}
                 </article>
               ))}
@@ -56,7 +95,7 @@ export default function Settings({
           )}
         </form>
 
-        <form className="control-card" onSubmit={(e) => { e.preventDefault(); submitWithLocalError(() => onCreateRegion(regionForm)); }}>
+        <form className="control-card glass-card" onSubmit={(e) => { e.preventDefault(); submitWithLocalError(() => onCreateRegion(regionForm), 'Region created successfully.'); }}>
           <h2>Create region</h2>
           <label>Name
             <input value={regionForm.name} onChange={(e) => setRegionForm({ ...regionForm, name: e.target.value })} required />
@@ -64,7 +103,7 @@ export default function Settings({
           <button type="submit" disabled={!isAdmin}>Create region</button>
         </form>
 
-        <form className="control-card" onSubmit={(e) => { e.preventDefault(); submitWithLocalError(() => onCreateSensor({...sensorForm, region_id: sensorForm.region_id ? Number(sensorForm.region_id) : null, location: { lat: Number(sensorForm.lat), lon: Number(sensorForm.lon) }})); }}>
+        <form className="control-card glass-card" onSubmit={handleSensorSubmit}>
           <h2>Create sensor</h2>
           <label>Name
             <input value={sensorForm.name} onChange={(e) => setSensorForm({ ...sensorForm, name: e.target.value })} required />

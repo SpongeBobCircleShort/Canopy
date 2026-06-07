@@ -26,10 +26,13 @@ export default function Layout({ profile, onLogout, health, message, error, isDe
       </button>
       {isSidebarOpen && <button className="sidebar-scrim" type="button" aria-label="Close navigation menu" onClick={closeSidebar} />}
 
-      <aside className={`main-sidebar ${isSidebarOpen ? 'open' : ''}`}>
+      <aside className={`main-sidebar glass-sidebar ${isSidebarOpen ? 'open' : ''}`}>
         <div className="sidebar-header">
           <div className="sidebar-wordmark">CANOPY</div>
-          <div className="sidebar-version">v0.2.0 / {isDemoMode ? 'DEMO' : (health.status || '').toUpperCase()}</div>
+          <div className="sidebar-version">
+            <span className={`health-dot ${isDemoMode ? 'demo' : (health.status === 'ok' || health.status === 'healthy') ? 'ok' : 'error'}`} />
+            v0.2.0 / {isDemoMode ? 'DEMO' : (health.status || '').toUpperCase()}
+          </div>
         </div>
         <hr className="sidebar-header-rule" />
 

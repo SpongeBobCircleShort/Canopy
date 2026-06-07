@@ -103,7 +103,7 @@ describe('App', () => {
     expect(screen.getByRole('heading', { name: /Manual satellite change/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Run Fusion/i })).toBeEnabled()
     expect(screen.getByRole('heading', { name: /Upload NDVI CSV/i })).toBeInTheDocument()
-    expect(screen.getByText(/Run 14-day\/500m rule/i)).toBeInTheDocument()
+    expect(screen.getByText(/Run spatiotemporal decay rule v2/i)).toBeInTheDocument()
   })
 
   it('opens the dashboard without an auth gate', async () => {

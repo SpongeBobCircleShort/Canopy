@@ -1314,3 +1314,299 @@ body {
 * {
   text-shadow: none !important;
 }
+
+/* ==========================================
+   Canopy Premium Glassmorphism & Animations
+   ========================================== */
+
+.glass-card {
+  background: rgba(17, 22, 17, 0.65) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37) !important;
+  transition: transform var(--duration-med) var(--ease-out), border-color var(--duration-med) var(--ease-out), box-shadow var(--duration-med) var(--ease-out) !important;
+}
+
+.glass-card:hover {
+  border-color: rgba(74, 124, 89, 0.3) !important;
+  box-shadow: 0 8px 32px 0 rgba(74, 124, 89, 0.15), 0 0 12px 1px rgba(74, 124, 89, 0.1) !important;
+  transform: translateY(-2px) !important;
+}
+
+.main-sidebar.glass-sidebar {
+  background: rgba(10, 15, 10, 0.7) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.05) !important;
+  position: relative;
+  overflow: hidden;
+}
+
+.main-sidebar.glass-sidebar::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: 0.03;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+}
+
+/* API Health Indicator Dot */
+.health-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 8px;
+  vertical-align: middle;
+  position: relative;
+}
+
+.health-dot.ok {
+  background-color: #2ecc71;
+  box-shadow: 0 0 8px #2ecc71;
+  animation: pulseGreen 2s infinite;
+}
+
+.health-dot.demo {
+  background-color: #f39c12;
+  box-shadow: 0 0 8px #f39c12;
+  animation: pulseAmber 2s infinite;
+}
+
+.health-dot.error {
+  background-color: #e74c3c;
+  box-shadow: 0 0 8px #e74c3c;
+  animation: pulseRed 2s infinite;
+}
+
+@keyframes pulseGreen {
+  0% {
+    box-shadow: 0 0 0 0 rgba(46, 204, 113, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 6px rgba(46, 204, 113, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(46, 204, 113, 0);
+  }
+}
+
+@keyframes pulseAmber {
+  0% {
+    box-shadow: 0 0 0 0 rgba(243, 156, 18, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 6px rgba(243, 156, 18, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(243, 156, 18, 0);
+  }
+}
+
+@keyframes pulseRed {
+  0% {
+    box-shadow: 0 0 0 0 rgba(231, 76, 60, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 6px rgba(231, 76, 60, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(231, 76, 60, 0);
+  }
+}
+
+/* Nav Item Hover Glow */
+.sidebar-nav a {
+  position: relative;
+  overflow: hidden;
+  z-index: 1;
+}
+
+.sidebar-nav a::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 120%;
+  height: 120%;
+  background: radial-gradient(circle, rgba(74, 124, 89, 0.2) 0%, transparent 60%);
+  transform: translate(-50%, -50%) scale(0);
+  transition: transform 0.3s ease;
+  pointer-events: none;
+  z-index: -1;
+}
+
+.sidebar-nav a:hover::after {
+  transform: translate(-50%, -50%) scale(1);
+}
+
+/* Keyframes for animations */
+@keyframes fadeSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-slide-up {
+  animation: fadeSlideUp 0.4s var(--ease-out) forwards;
+}
+
+/* Decays and signal bars */
+.decay-container {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.decay-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.72rem;
+  color: var(--db-text-2);
+}
+
+.decay-bar-bg {
+  width: 100px;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+  overflow: hidden;
+  position: relative;
+}
+
+.decay-bar-fill {
+  height: 100%;
+  background: var(--db-green);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.decay-bar-fill.spatial {
+  background: #62a7bf;
+}
+
+.decay-bar-fill.temporal {
+  background: #c87941;
+}
+
+/* CSS-only chart */
+.priority-chart {
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.chart-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.7rem;
+}
+
+.chart-label {
+  width: 60px;
+  color: var(--db-text-2);
+  text-transform: uppercase;
+}
+
+.chart-track {
+  flex: 1;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.chart-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.5s ease-out;
+}
+
+.chart-fill.critical { background: #C0392B; }
+.chart-fill.high { background: #e67e22; }
+.chart-fill.medium { background: #C87941; }
+.chart-fill.low { background: var(--db-green); }
+
+.chart-value {
+  width: 20px;
+  text-align: right;
+  color: var(--db-text-1);
+}
+
+/* Critical priority alert marker pulse animation */
+.marker-pulse {
+  animation: markerGlow 1.5s infinite alternate;
+}
+
+@keyframes markerGlow {
+  from {
+    filter: drop-shadow(0 0 2px #C0392B);
+  }
+  to {
+    filter: drop-shadow(0 0 8px #C0392B);
+  }
+}
+
+/* Sentinel parameter card grid placement */
+.sentinel-grid-inputs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.sentinel-grid-inputs label {
+  margin: 0 !important;
+}
+.sentinel-bbox-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+.sentinel-bbox-grid input {
+  padding: 6px 8px !important;
+  min-height: 34px !important;
+  font-size: 0.78rem !important;
+}
+
+/* Overwrite existing styles for glassmorphism */
+.metrics-grid div {
+  background: rgba(17, 22, 17, 0.65) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37) !important;
+  transition: transform var(--duration-med) var(--ease-out), border-color var(--duration-med) var(--ease-out), box-shadow var(--duration-med) var(--ease-out) !important;
+}
+
+.metrics-grid div:hover {
+  background: rgba(17, 22, 17, 0.75) !important;
+  border-color: rgba(74, 124, 89, 0.3) !important;
+  box-shadow: 0 8px 32px 0 rgba(74, 124, 89, 0.15), 0 0 12px 1px rgba(74, 124, 89, 0.1) !important;
+  transform: translateY(-2px) !important;
+}
+
+.control-card, .alert-card, .satellite-change-card {
+  background: rgba(17, 22, 17, 0.65) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37) !important;
+  transition: transform var(--duration-med) var(--ease-out), border-color var(--duration-med) var(--ease-out), box-shadow var(--duration-med) var(--ease-out) !important;
+}
+
+.control-card:hover, .alert-card:hover, .satellite-change-card:hover {
+  background: rgba(17, 22, 17, 0.75) !important;
+  border-color: rgba(74, 124, 89, 0.3) !important;
+  box-shadow: 0 8px 32px 0 rgba(74, 124, 89, 0.15), 0 0 12px 1px rgba(74, 124, 89, 0.1) !important;
+}
+

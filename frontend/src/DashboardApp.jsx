@@ -1,3 +1,4 @@
+/* global Blob */
 import { useEffect, useState } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 
@@ -15,6 +16,7 @@ import {
   fetchRegions,
   fetchSatelliteChanges,
   fetchSensors,
+  ingestSentinel,
   revokeInvite,
   runFusion,
   updateAlertStatus,
@@ -388,7 +390,7 @@ export default function DashboardApp() {
     await refreshData()
   }
 
-  async function handleRunFusion() {
+  async function handleRunFusion(payload = {}) {
     setError('')
     if (!hasApiSession) {
       const acousticAlert = alerts.find((alert) => alert.type === 'audio')
@@ -404,7 +406,7 @@ export default function DashboardApp() {
         type: 'fusion',
         status: 'open',
         priority: 'medium',
-        description: `Fusion alert: acoustic evidence '${acousticAlert.classifier_label || 'audio'}' matched satellite change '${satelliteChange.change_type}' within 16m.`,
+        description: `Fusion alert: acoustic evidence '${acousticAlert.classifier_label || 'audio'}' matched satellite change '${satelliteChange.change_type}' (temporal decay 0.85, spatial decay 0.92).`,
         metadata: {
           acoustic_alert_id: acousticAlert.id,
           satellite_change_id: satelliteChange.id,
@@ -417,14 +419,20 @@ export default function DashboardApp() {
           distance_meters: 15.71,
           fusion_score: 0.637,
           fusion_scoring_mode: 'acoustic_satellite',
-          fusion_rule_version: 'rule-fusion-v1',
+          fusion_rule_version: 'rule-fusion-v2',
+          temporal_decay: 0.85,
+          spatial_decay: 0.92,
+          time_decay_halflife_days: payload.time_decay_halflife_days || 7.0,
+          spatial_sigma_meters: payload.spatial_sigma_meters || 200.0,
+          corroborating_change_count: 1,
+          source_quality_multiplier: 1.10,
         },
         created_at: nowIso(),
         updated_at: nowIso(),
       }
       setAlerts((current) => [fusionAlert, ...current])
       setFusionResult({ created_count: 1, matched_count: 1, alerts: [fusionAlert] })
-      setMessage('Fusion completed: 1 alert created from 1 match.')
+      setMessage('Fusion completed (Demo Mode): 1 alert created from 1 match.')
       return
     }
     const result = await runFusion(token, {
@@ -432,6 +440,7 @@ export default function DashboardApp() {
       distance_meters: 500,
       min_acoustic_confidence: 0.65,
       min_satellite_severity: 0.3,
+      ...payload,
     })
     setFusionResult(result)
     setMessage(
@@ -440,6 +449,51 @@ export default function DashboardApp() {
         : `Fusion completed: ${result.created_count} alert(s) created from ${result.matched_count} match(es).`,
     )
     await refreshData()
+  }
+
+  async function handleIngestSentinel(payload) {
+    setError('')
+    if (!hasApiSession) {
+      const firstChangeId = nextId(satelliteChanges)
+      const mockChange = {
+        id: firstChangeId,
+        org_id: profile.org_id,
+        region_id: payload.region_id || null,
+        source: 'sentinel_2',
+        change_type: 'canopy_loss',
+        severity_score: 0.68,
+        confidence: 0.85,
+        latitude: (payload.bbox[1] + payload.bbox[3]) / 2,
+        longitude: (payload.bbox[0] + payload.bbox[2]) / 2,
+        description: 'Sentinel-2 STAC Ingestion Mock (Demo Mode)',
+        metadata: {
+          bbox: payload.bbox,
+          max_cloud_cover: payload.max_cloud_cover,
+          loss_threshold: payload.loss_threshold,
+          grid_resolution: payload.grid_resolution,
+          baseline_scenes: 3,
+          observation_scenes: 4,
+        },
+        created_at: nowIso(),
+        updated_at: nowIso(),
+        image_date: nowIso(),
+      }
+      setSatelliteChanges((current) => [mockChange, ...current])
+      const res = {
+        created_change_count: 1,
+        created_satellite_change_ids: [mockChange.id],
+        baseline_scene_count: 3,
+        observation_scene_count: 4,
+        grid_cells_evaluated: payload.grid_resolution * payload.grid_resolution,
+        skipped_count: (payload.grid_resolution * payload.grid_resolution) - 1,
+      }
+      setMessage(`Sentinel Ingestion completed (Demo Mode): 1 change created.`)
+      return res
+    }
+    const result = await ingestSentinel(token, payload)
+    setMessage(`Sentinel Ingestion completed: ${result.created_change_count} change(s) created.`)
+    await refreshData()
+    return result
   }
 
   async function handleUpdateAlertStatus(alertId, status) {
@@ -498,6 +552,7 @@ export default function DashboardApp() {
               onCreateSatelliteChange={handleCreateSatelliteChange}
               onRunFusion={handleRunFusion}
               onExportAlerts={handleExportAlerts}
+              onIngestSentinel={handleIngestSentinel}
             />
           }
         />

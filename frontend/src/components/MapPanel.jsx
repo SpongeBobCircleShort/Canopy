@@ -1,8 +1,12 @@
-import { useEffect, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
 import { CircleMarker, MapContainer, Popup, TileLayer, useMap, useMapEvents } from 'react-leaflet'
 
 function alertStyle(alert, scale) {
   const base = { color: '#111111', weight: Math.max(1, 4 * scale), fillOpacity: 1 }
+
+  if (alert.priority === 'critical') {
+    base.className = 'marker-pulse'
+  }
 
   if (alert.metadata?.fusion_score !== undefined || alert.type === 'fusion' || alert.type === 'fused_logging_risk') {
     return { ...base, fillColor: '#8b5cf6' }
@@ -18,6 +22,18 @@ function alertStyle(alert, scale) {
     case 'low':
     default:
       return { ...base, fillColor: '#267bc4' }
+  }
+}
+
+function satelliteChangeColor(source) {
+  switch (source) {
+    case 'sentinel_2':
+      return '#00f0ff' // Bright cyan
+    case 'csv_ndvi':
+      return '#d4ff00' // Yellow
+    case 'manual':
+    default:
+      return '#ffffff' // White
   }
 }
 
@@ -55,13 +71,21 @@ function DynamicMarkers({ alerts, sensors, satelliteChanges }) {
           <CircleMarker
             key={`satellite-change-${change.id}`}
             center={[change.latitude, change.longitude]}
-            pathOptions={{ color: '#111111', weight: Math.max(1, 3 * scale), fillColor: '#d4ff00', fillOpacity: 1 }}
+            pathOptions={{ color: '#111111', weight: Math.max(1, 3 * scale), fillColor: satelliteChangeColor(change.source), fillOpacity: 1 }}
             radius={Math.max(2.5, 10 * scale)}
           >
             <Popup>
               <strong>Satellite change #{change.id}</strong>
               <br />
               {change.change_type} severity {Math.round(change.severity_score * 100)}%
+              <br />
+              Source: {change.source}
+              {change.image_date && (
+                <>
+                  <br />
+                  Image Date: {new Date(change.image_date).toLocaleDateString()}
+                </>
+              )}
               {change.description && (
                 <>
                   <br />
@@ -73,25 +97,42 @@ function DynamicMarkers({ alerts, sensors, satelliteChanges }) {
         ))}
       {alerts.map((alert) => {
         if (!alert.location?.lat || !alert.location?.lon) return null
+        const isFused = alert.metadata?.fusion_score !== undefined
+        const spatialDecay = alert.metadata?.spatial_decay
         return (
-          <CircleMarker
-            key={`alert-${alert.id}`}
-            center={[alert.location.lat, alert.location.lon]}
-            pathOptions={alertStyle(alert, scale)}
-            radius={alert.metadata?.fusion_score !== undefined ? Math.max(3, 14 * scale) : Math.max(2.5, 11 * scale)}
-          >
-            <Popup>
-              <strong>{alert.metadata?.fusion_score !== undefined ? 'Fused' : alert.type} alert</strong>
-              <br />
-              {alert.description}
-              {alert.metadata?.fusion_score !== undefined && (
-                <>
-                  <br />
-                  Fusion score: {Number(alert.metadata.fusion_score).toFixed(4)}
-                </>
-              )}
-            </Popup>
-          </CircleMarker>
+          <Fragment key={`alert-group-${alert.id}`}>
+            {isFused && spatialDecay !== undefined && (
+              <CircleMarker
+                center={[alert.location.lat, alert.location.lon]}
+                pathOptions={{
+                  color: '#62a7bf',
+                  weight: 1,
+                  fillColor: '#62a7bf',
+                  fillOpacity: spatialDecay * 0.25,
+                  dashArray: '4, 4',
+                }}
+                radius={Math.max(12, 32 * scale)}
+                interactive={false}
+              />
+            )}
+            <CircleMarker
+              center={[alert.location.lat, alert.location.lon]}
+              pathOptions={alertStyle(alert, scale)}
+              radius={isFused ? Math.max(3, 14 * scale) : Math.max(2.5, 11 * scale)}
+            >
+              <Popup>
+                <strong>{isFused ? 'Fused' : alert.type} alert</strong>
+                <br />
+                {alert.description}
+                {isFused && (
+                  <>
+                    <br />
+                    Fusion score: {Number(alert.metadata.fusion_score).toFixed(4)}
+                  </>
+                )}
+              </Popup>
+            </CircleMarker>
+          </Fragment>
         )
       })}
     </>
