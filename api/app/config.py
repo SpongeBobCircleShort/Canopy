@@ -10,6 +10,12 @@ class Settings(BaseSettings):
     audio_model_path: str | None = None
     metrics_path: str | None = None
     fusion_auto_interval_minutes: int = 0  # 0 = disabled
+    smtp_host: str | None = None
+    smtp_port: int = 587
+    smtp_user: str | None = None
+    smtp_password: str | None = None
+    smtp_from_address: str | None = None
+    smtp_use_tls: bool = True
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

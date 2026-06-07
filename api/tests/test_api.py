@@ -1378,3 +1378,84 @@ def test_heartbeat_unknown_sensor() -> None:
         token = _signup(client, email="hb_unknown@example.org", org_name="HB Unknown Org")
         resp = client.post("/api/sensors/9999/heartbeat", headers=_auth_header(token))
         assert resp.status_code == 404
+
+
+def test_email_notification_settings_crud() -> None:
+    _reset_test_database()
+    with TestClient(app) as client:
+        token = _signup(client, email="email_notif@example.org", org_name="Email Notif Org")
+        me = client.get("/api/auth/me", headers=_auth_header(token)).json()
+        org_id = me["org_id"]
+
+        # Default is empty emails list
+        resp = client.get(f"/api/organizations/{org_id}/notification-settings", headers=_auth_header(token))
+        assert resp.status_code == 200
+        assert resp.json()["emails"] == []
+
+        # Save email addresses
+        resp = client.patch(
+            f"/api/organizations/{org_id}/notification-settings",
+            headers=_auth_header(token),
+            json={"emails": ["ranger@example.org", "ops@example.org"]},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["emails"] == ["ranger@example.org", "ops@example.org"]
+
+        # Patching only emails doesn't wipe webhooks (and vice versa)
+        client.patch(
+            f"/api/organizations/{org_id}/notification-settings",
+            headers=_auth_header(token),
+            json={"webhooks": ["https://hooks.example.com/x"]},
+        )
+        resp = client.get(f"/api/organizations/{org_id}/notification-settings", headers=_auth_header(token))
+        assert resp.json()["emails"] == ["ranger@example.org", "ops@example.org"]
+        assert resp.json()["webhooks"] == ["https://hooks.example.com/x"]
+
+        # Reject invalid email (no @)
+        resp = client.patch(
+            f"/api/organizations/{org_id}/notification-settings",
+            headers=_auth_header(token),
+            json={"emails": ["not-an-email"]},
+        )
+        assert resp.status_code == 422
+
+
+def test_notify_by_email_skips_when_smtp_not_configured() -> None:
+    from app.services import notifications
+
+    called: list = []
+
+    def _fake_send(alert, recipients):
+        called.append(recipients)
+
+    _reset_test_database()
+    with TestClient(app) as client:
+        token = _signup(client, email="email_skip@example.org", org_name="Email Skip Org")
+        me = client.get("/api/auth/me", headers=_auth_header(token)).json()
+        org_id = me["org_id"]
+        client.patch(
+            f"/api/organizations/{org_id}/notification-settings",
+            headers=_auth_header(token),
+            json={"emails": ["ranger@example.org"]},
+        )
+        # Without SMTP configured, _send_email should return early — but we test the full path
+        # via monkeypatching _send_email to capture the call
+        import unittest.mock
+        with unittest.mock.patch.object(notifications, "_send_email", side_effect=_fake_send):
+            client.post(
+                "/api/alerts",
+                headers=_auth_header(token),
+                json={"type": "audio", "location": {"lat": 1.0, "lon": 1.0}, "description": "High alert", "priority": "high"},
+            )
+        assert len(called) == 1
+        assert "ranger@example.org" in called[0]
+
+        # Low-priority alert should not trigger _send_email
+        called.clear()
+        with unittest.mock.patch.object(notifications, "_send_email", side_effect=_fake_send):
+            client.post(
+                "/api/alerts",
+                headers=_auth_header(token),
+                json={"type": "audio", "location": {"lat": 1.0, "lon": 1.0}, "description": "Low alert", "priority": "low"},
+            )
+        assert len(called) == 0

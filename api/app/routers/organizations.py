@@ -6,10 +6,12 @@ from app.repositories import (
     create_invite,
     create_organization,
     get_organization,
+    get_org_emails,
     get_org_webhooks,
     list_invites_for_org,
     list_organizations,
     revoke_invite,
+    set_org_emails,
     set_org_webhooks,
 )
 from app.schemas import NotificationSettings, NotificationSettingsUpdate, Organization, OrganizationCreate, OrganizationInvite, OrganizationInviteCreate, OrganizationInviteCreated
@@ -71,7 +73,7 @@ def list_org_invites(org_id: int, current_user: dict = Depends(require_admin)) -
 @router.get("/{org_id}/notification-settings", response_model=NotificationSettings)
 def get_notification_settings(org_id: int, current_user: dict = Depends(require_admin)) -> NotificationSettings:
     _require_same_org_admin(org_id, current_user)
-    return NotificationSettings(webhooks=get_org_webhooks(org_id))
+    return NotificationSettings(webhooks=get_org_webhooks(org_id), emails=get_org_emails(org_id))
 
 
 @router.patch("/{org_id}/notification-settings", response_model=NotificationSettings)
@@ -81,11 +83,19 @@ def update_notification_settings(
     current_user: dict = Depends(require_admin),
 ) -> NotificationSettings:
     _require_same_org_admin(org_id, current_user)
-    invalid = [url for url in payload.webhooks if url and not url.startswith(("http://", "https://"))]
-    if invalid:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=f"Invalid webhook URLs: {invalid}")
-    webhooks = set_org_webhooks(org_id, payload.webhooks)
-    return NotificationSettings(webhooks=webhooks)
+    webhooks = get_org_webhooks(org_id)
+    emails = get_org_emails(org_id)
+    if payload.webhooks is not None:
+        invalid = [url for url in payload.webhooks if url and not url.startswith(("http://", "https://"))]
+        if invalid:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=f"Invalid webhook URLs: {invalid}")
+        webhooks = set_org_webhooks(org_id, payload.webhooks)
+    if payload.emails is not None:
+        invalid_emails = [e for e in payload.emails if e and "@" not in e]
+        if invalid_emails:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=f"Invalid email addresses: {invalid_emails}")
+        emails = set_org_emails(org_id, payload.emails)
+    return NotificationSettings(webhooks=webhooks, emails=emails)
 
 
 @router.post("/{org_id}/invites/{invite_id}/revoke", response_model=OrganizationInvite)

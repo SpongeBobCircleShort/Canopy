@@ -7,17 +7,20 @@ export default function Settings({
   invites,
   isAdmin,
   webhooks,
+  emails,
   fusionSchedule,
   onCreateInvite,
   onRevokeInvite,
   onCreateRegion,
   onCreateSensor,
   onSaveWebhooks,
+  onSaveEmails,
 }) {
   const [inviteForm, setInviteForm] = useState({ email: '', role: 'member' })
   const [regionForm, setRegionForm] = useState({ name: '', description: '', boundary: '' })
   const [sensorForm, setSensorForm] = useState({ name: '', device_type: 'forest-listening-unit', region_id: '', lat: '', lon: '' })
   const [webhookInput, setWebhookInput] = useState(webhooks?.join('\n') ?? '')
+  const [emailInput, setEmailInput] = useState(emails?.join('\n') ?? '')
 
   const [localError, setLocalError] = useState('')
   const [localSuccess, setLocalSuccess] = useState('')
@@ -151,6 +154,32 @@ export default function Settings({
             />
           </label>
           <button type="submit" disabled={!isAdmin}>Save webhooks</button>
+        </form>
+
+        <form
+          className="control-card glass-card"
+          onSubmit={(e) => {
+            e.preventDefault()
+            const addrs = emailInput.split('\n').map((a) => a.trim()).filter(Boolean)
+            submitWithLocalError(() => onSaveEmails(addrs), 'Email recipients saved.')
+          }}
+        >
+          <h2>Email notifications</h2>
+          <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: 8 }}>
+            Canopy will email high/critical alerts to each address (one per line). Requires SMTP to be configured on the server.
+          </p>
+          <label>
+            Recipients
+            <textarea
+              rows={4}
+              placeholder={'ranger1@example.org\nops-team@example.org'}
+              value={emailInput}
+              onChange={(e) => setEmailInput(e.target.value)}
+              disabled={!isAdmin}
+              style={{ fontFamily: 'monospace', fontSize: '0.8rem', resize: 'vertical' }}
+            />
+          </label>
+          <button type="submit" disabled={!isAdmin}>Save recipients</button>
         </form>
 
         <div className="control-card glass-card">

@@ -43,10 +43,12 @@ class Organization(OrganizationCreate):
 
 class NotificationSettings(BaseModel):
     webhooks: list[str] = Field(default_factory=list)
+    emails: list[str] = Field(default_factory=list)
 
 
 class NotificationSettingsUpdate(BaseModel):
-    webhooks: list[str]
+    webhooks: list[str] | None = None
+    emails: list[str] | None = None
 
 
 

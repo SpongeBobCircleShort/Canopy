@@ -110,6 +110,7 @@ export default function DashboardApp() {
   const [token, setToken] = useState(() => window.localStorage.getItem('canopy_token') || '')
   const [clips, setClips] = useState([])
   const [webhooks, setWebhooks] = useState([])
+  const [emails, setEmails] = useState([])
   const [fusionSchedule, setFusionSchedule] = useState(null)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
@@ -130,6 +131,7 @@ export default function DashboardApp() {
     setInvites(demo.invites)
     setClips([])
     setWebhooks([])
+    setEmails([])
     setFusionSchedule(null)
     setFusionResult(null)
     setNdviUploadResult(null)
@@ -173,6 +175,7 @@ export default function DashboardApp() {
       setNdviBatches(ndviBatchesResult)
       setInvites(invitesResult)
       setWebhooks(notifResult.webhooks ?? [])
+      setEmails(notifResult.emails ?? [])
       const clipsResult = await fetchClips(nextToken).catch(() => [])
       setClips(clipsResult)
       const scheduleResult = await fetchFusionSchedule(nextToken).catch(() => null)
@@ -556,6 +559,18 @@ export default function DashboardApp() {
     return addClipLabel(token, clipId, payload)
   }
 
+  async function handleSaveEmails(addrs) {
+    setError('')
+    if (!hasApiSession) {
+      setEmails(addrs)
+      setMessage(`Saved ${addrs.length} demo email recipient(s).`)
+      return
+    }
+    const result = await updateNotificationSettings(token, profile.org_id, { emails: addrs })
+    setEmails(result.emails ?? [])
+    setMessage(`Saved ${(result.emails ?? []).length} email recipient(s).`)
+  }
+
   async function handleExportLabels() {
     if (!hasApiSession) return
     const blob = await downloadLabelsCsv(token)
@@ -649,12 +664,14 @@ export default function DashboardApp() {
               invites={invites}
               isAdmin={isAdmin}
               webhooks={webhooks}
+              emails={emails}
               fusionSchedule={fusionSchedule}
               onCreateInvite={handleCreateInvite}
               onRevokeInvite={handleRevokeInvite}
               onCreateRegion={handleCreateRegion}
               onCreateSensor={handleCreateSensor}
               onSaveWebhooks={handleSaveWebhooks}
+              onSaveEmails={handleSaveEmails}
             />
           }
         />

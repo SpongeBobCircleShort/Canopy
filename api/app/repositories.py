@@ -212,6 +212,44 @@ def set_org_webhooks(org_id: int, webhooks: list[str]) -> list[str]:
     return webhooks
 
 
+def get_org_emails(org_id: int) -> list[str]:
+    with connection() as conn:
+        if is_sqlite():
+            row = conn.execute(
+                "SELECT notification_emails FROM organizations WHERE id = ?", (org_id,)
+            ).fetchone()
+        else:
+            row = conn.execute(
+                "SELECT notification_emails FROM organizations WHERE id = %s", (org_id,)
+            ).fetchone()
+    if row is None:
+        return []
+    raw = _row_get(row, "notification_emails")
+    if raw is None:
+        return []
+    if isinstance(raw, list):
+        return raw
+    try:
+        return json.loads(raw or "[]")
+    except (ValueError, TypeError):
+        return []
+
+
+def set_org_emails(org_id: int, emails: list[str]) -> list[str]:
+    with connection() as conn:
+        if is_sqlite():
+            conn.execute(
+                "UPDATE organizations SET notification_emails = ? WHERE id = ?",
+                (json.dumps(emails), org_id),
+            )
+        else:
+            conn.execute(
+                "UPDATE organizations SET notification_emails = %s::jsonb WHERE id = %s",
+                (json.dumps(emails), org_id),
+            )
+    return emails
+
+
 def list_organizations() -> list[Organization]:
     with connection() as conn:
         rows = conn.execute("SELECT * FROM organizations ORDER BY name, id").fetchall()
@@ -703,7 +741,7 @@ def create_alert(org_id: int, payload: AlertCreate, *, status_value: AlertStatus
         alert = _alert_from_row(row)
     if not _skip_notify:
         from app.services.notifications import notify_alert_created
-        notify_alert_created(alert, get_org_webhooks(org_id))
+        notify_alert_created(alert, get_org_webhooks(org_id), get_org_emails(org_id))
     return alert
 
 
