@@ -14,6 +14,9 @@ from app.schemas import (
     AlertCreate,
     AlertStatus,
     AlertType,
+    AudioClip,
+    AudioLabel,
+    AudioLabelCreate,
     Coordinates,
     InviteStatus,
     NdviIngestionBatch,
@@ -950,22 +953,108 @@ def get_ndvi_ingestion_batch(batch_id: int, org_id: int) -> NdviIngestionBatch |
         return _ndvi_batch_from_row(row) if row else None
 
 
-def create_audio_clip(file_path: Path, *, org_id: int, sensor_id: int) -> int:
+def create_audio_clip(
+    file_path: Path,
+    *,
+    org_id: int,
+    sensor_id: int,
+    classifier_label: str | None = None,
+    classifier_confidence: float | None = None,
+    classifier_model_version: str | None = None,
+) -> int:
     require_sensor(sensor_id, org_id)
     with connection() as conn:
         if is_sqlite():
             cursor = conn.execute(
-                "INSERT INTO audio_clips (org_id, sensor_id, file_url) VALUES (?, ?, ?)",
-                (org_id, sensor_id, str(file_path)),
+                """
+                INSERT INTO audio_clips (org_id, sensor_id, file_url, classifier_label, classifier_confidence, classifier_model_version)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (org_id, sensor_id, str(file_path), classifier_label, classifier_confidence, classifier_model_version),
             )
             return int(cursor.lastrowid)
 
         row = conn.execute(
             """
-            INSERT INTO audio_clips (org_id, sensor_id, captured_at, file_url)
-            VALUES (%s, %s, now(), %s)
+            INSERT INTO audio_clips (org_id, sensor_id, captured_at, file_url, classifier_label, classifier_confidence, classifier_model_version)
+            VALUES (%s, %s, now(), %s, %s, %s, %s)
             RETURNING id
             """,
-            (org_id, sensor_id, str(file_path)),
+            (org_id, sensor_id, str(file_path), classifier_label, classifier_confidence, classifier_model_version),
         ).fetchone()
         return int(row["id"])
+
+
+def _clip_from_row(row: Any) -> AudioClip:
+    return AudioClip(
+        id=_row_get(row, "id"),
+        org_id=_row_get(row, "org_id"),
+        sensor_id=_row_get(row, "sensor_id"),
+        file_url=_row_get(row, "file_url"),
+        classifier_label=_row_get(row, "classifier_label"),
+        classifier_confidence=_row_get(row, "classifier_confidence"),
+        classifier_model_version=_row_get(row, "classifier_model_version"),
+        created_at=_coerce_datetime(_row_get(row, "created_at")) or datetime.now(timezone.utc),
+    )
+
+
+def list_clips_for_org(org_id: int, limit: int = 50) -> list[AudioClip]:
+    with connection() as conn:
+        placeholder = "?" if is_sqlite() else "%s"
+        rows = conn.execute(
+            f"SELECT * FROM audio_clips WHERE org_id = {placeholder} ORDER BY created_at DESC, id DESC LIMIT {placeholder}",
+            (org_id, limit),
+        ).fetchall()
+    return [_clip_from_row(row) for row in rows]
+
+
+def get_clip(clip_id: int, org_id: int) -> AudioClip | None:
+    with connection() as conn:
+        if is_sqlite():
+            row = conn.execute("SELECT * FROM audio_clips WHERE id = ? AND org_id = ?", (clip_id, org_id)).fetchone()
+        else:
+            row = conn.execute("SELECT * FROM audio_clips WHERE id = %s AND org_id = %s", (clip_id, org_id)).fetchone()
+    return _clip_from_row(row) if row else None
+
+
+def list_labels_for_clip(clip_id: int) -> list[AudioLabel]:
+    with connection() as conn:
+        placeholder = "?" if is_sqlite() else "%s"
+        rows = conn.execute(
+            f"SELECT * FROM audio_labels WHERE clip_id = {placeholder} ORDER BY labeled_at DESC, id DESC",
+            (clip_id,),
+        ).fetchall()
+    return [
+        AudioLabel(
+            id=_row_get(row, "id"),
+            clip_id=_row_get(row, "clip_id"),
+            user_id=_row_get(row, "user_id"),
+            label=_row_get(row, "label"),
+            confidence=_row_get(row, "confidence"),
+            labeled_at=_coerce_datetime(_row_get(row, "labeled_at")) or datetime.now(timezone.utc),
+        )
+        for row in rows
+    ]
+
+
+def create_audio_label(clip_id: int, user_id: int, payload: AudioLabelCreate) -> AudioLabel:
+    with connection() as conn:
+        if is_sqlite():
+            cursor = conn.execute(
+                "INSERT INTO audio_labels (clip_id, user_id, label, confidence) VALUES (?, ?, ?, ?)",
+                (clip_id, user_id, payload.label, payload.confidence),
+            )
+            row = conn.execute("SELECT * FROM audio_labels WHERE id = ?", (cursor.lastrowid,)).fetchone()
+        else:
+            row = conn.execute(
+                "INSERT INTO audio_labels (clip_id, user_id, label, confidence) VALUES (%s, %s, %s, %s) RETURNING *",
+                (clip_id, user_id, payload.label, payload.confidence),
+            ).fetchone()
+    return AudioLabel(
+        id=_row_get(row, "id"),
+        clip_id=_row_get(row, "clip_id"),
+        user_id=_row_get(row, "user_id"),
+        label=_row_get(row, "label"),
+        confidence=_row_get(row, "confidence"),
+        labeled_at=_coerce_datetime(_row_get(row, "labeled_at")) or datetime.now(timezone.utc),
+    )

@@ -1189,3 +1189,60 @@ def test_notification_fires_for_high_priority_alert(monkeypatch: pytest.MonkeyPa
             },
         )
         assert len(fired) == 1  # Still only 1 — low priority not notified
+
+
+def test_clips_list_and_labeling() -> None:
+    _reset_test_database()
+    with TestClient(app) as client:
+        token = _signup(client, email="clips@example.org", org_name="Clips Org")
+
+        # No clips yet
+        resp = client.get("/api/clips", headers=_auth_header(token))
+        assert resp.status_code == 200
+        assert resp.json() == []
+
+        # Upload a clip to create one
+        sensor = _create_sensor(client, token)
+        audio = b"RIFF" + b"\x00" * 36 + b"data" + b"\x00" * 100  # minimal wav-ish bytes
+        resp = client.post(
+            "/api/clips/upload",
+            headers=_auth_header(token),
+            files={"file": ("test.wav", audio, "audio/wav")},
+            data={"sensor_id": str(sensor["id"])},
+        )
+        assert resp.status_code == 201
+        clip_id = resp.json()["clip_id"]
+
+        # Clip appears in list with classifier fields
+        resp = client.get("/api/clips", headers=_auth_header(token))
+        assert resp.status_code == 200
+        clips = resp.json()
+        assert len(clips) == 1
+        assert clips[0]["id"] == clip_id
+        assert clips[0]["classifier_label"] is not None
+
+        # No labels yet
+        resp = client.get(f"/api/clips/{clip_id}/labels", headers=_auth_header(token))
+        assert resp.status_code == 200
+        assert resp.json() == []
+
+        # Add a label
+        resp = client.post(
+            f"/api/clips/{clip_id}/labels",
+            headers=_auth_header(token),
+            json={"label": "chainsaw", "confidence": 0.95},
+        )
+        assert resp.status_code == 201
+        lbl = resp.json()
+        assert lbl["label"] == "chainsaw"
+        assert lbl["clip_id"] == clip_id
+
+        # Label is visible
+        resp = client.get(f"/api/clips/{clip_id}/labels", headers=_auth_header(token))
+        assert resp.status_code == 200
+        assert len(resp.json()) == 1
+        assert resp.json()[0]["label"] == "chainsaw"
+
+        # 404 for unknown clip
+        assert client.get("/api/clips/9999/labels", headers=_auth_header(token)).status_code == 404
+        assert client.post("/api/clips/9999/labels", headers=_auth_header(token), json={"label": "test"}).status_code == 404

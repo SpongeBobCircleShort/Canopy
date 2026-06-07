@@ -298,3 +298,26 @@ class ClipUploadResponse(BaseModel):
     classifier_confidence: float
     classifier_model_version: str
     generated_alert: Alert | None = None
+
+
+class AudioClip(BaseModel):
+    id: int
+    org_id: int
+    sensor_id: int | None = None
+    file_url: str
+    classifier_label: str | None = None
+    classifier_confidence: float | None = None
+    classifier_model_version: str | None = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class AudioLabelCreate(BaseModel):
+    label: str
+    confidence: float | None = Field(default=None, ge=0.0, le=1.0)
+
+
+class AudioLabel(AudioLabelCreate):
+    id: int
+    clip_id: int
+    user_id: int | None = None
+    labeled_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

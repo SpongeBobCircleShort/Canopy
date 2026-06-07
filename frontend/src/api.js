@@ -169,6 +169,22 @@ export async function downloadAlertsCsv(token) {
   return response.blob()
 }
 
+export async function fetchClips(token, limit = 50) {
+  return request(`/api/clips?limit=${limit}`, { headers: authHeaders(token) })
+}
+
+export async function fetchClipLabels(token, clipId) {
+  return request(`/api/clips/${clipId}/labels`, { headers: authHeaders(token) })
+}
+
+export async function addClipLabel(token, clipId, payload) {
+  return request(`/api/clips/${clipId}/labels`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders(token) },
+    body: JSON.stringify(payload),
+  })
+}
+
 export async function fetchNotificationSettings(token, orgId) {
   return request(`/api/organizations/${orgId}/notification-settings`, { headers: authHeaders(token) })
 }

@@ -39,6 +39,7 @@ export default function Layout({ profile, onLogout, health, message, error, isDe
         <nav className="sidebar-nav">
           <Link to="/app" className={location.pathname === '/app' ? 'active' : ''} onClick={closeSidebar}>Overview</Link>
           <Link to="/app/ingestion" className={location.pathname === '/app/ingestion' ? 'active' : ''} onClick={closeSidebar}>Data Ingestion</Link>
+          <Link to="/app/clips" className={location.pathname === '/app/clips' ? 'active' : ''} onClick={closeSidebar}>Clips Review</Link>
           <Link to="/app/settings" className={location.pathname === '/app/settings' ? 'active' : ''} onClick={closeSidebar}>Configuration</Link>
         </nav>
         

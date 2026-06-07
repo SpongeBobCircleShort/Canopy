@@ -3,12 +3,15 @@ import { useEffect, useState } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 
 import {
+  addClipLabel,
   createInvite,
   createRegion,
   createSatelliteChange,
   createSensor,
   downloadAlertsCsv,
   fetchAlerts,
+  fetchClipLabels,
+  fetchClips,
   fetchHealth,
   fetchInvites,
   fetchMe,
@@ -25,6 +28,7 @@ import {
   uploadClip,
   uploadNdviCsv,
 } from './api.js'
+import ClipsReview from './components/ClipsReview.jsx'
 import DataIngestion from './components/DataIngestion.jsx'
 import Layout from './components/Layout.jsx'
 import Overview from './components/Overview.jsx'
@@ -102,6 +106,7 @@ export default function DashboardApp() {
   const [profile, setProfile] = useState(initialDemo.profile)
   const [invites, setInvites] = useState(initialDemo.invites)
   const [token, setToken] = useState(() => window.localStorage.getItem('canopy_token') || '')
+  const [clips, setClips] = useState([])
   const [webhooks, setWebhooks] = useState([])
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
@@ -120,6 +125,7 @@ export default function DashboardApp() {
     setNdviBatches(demo.ndviBatches)
     setProfile(demo.profile)
     setInvites(demo.invites)
+    setClips([])
     setWebhooks([])
     setFusionResult(null)
     setNdviUploadResult(null)
@@ -163,6 +169,8 @@ export default function DashboardApp() {
       setNdviBatches(ndviBatchesResult)
       setInvites(invitesResult)
       setWebhooks(notifResult.webhooks ?? [])
+      const clipsResult = await fetchClips(nextToken).catch(() => [])
+      setClips(clipsResult)
     } catch {
       window.localStorage.removeItem('canopy_token')
       setToken('')
@@ -516,6 +524,32 @@ export default function DashboardApp() {
     await refreshData()
   }
 
+  async function handleFetchLabels(clipId) {
+    if (!hasApiSession) return []
+    return fetchClipLabels(token, clipId)
+  }
+
+  async function handleAddLabel(clipId, payload) {
+    setError('')
+    if (!hasApiSession) {
+      const label = {
+        id: Date.now(),
+        clip_id: clipId,
+        user_id: profile?.id || 1,
+        label: payload.label,
+        confidence: payload.confidence ?? null,
+        labeled_at: nowIso(),
+      }
+      setClips((current) =>
+        current.map((clip) =>
+          clip.id === clipId ? { ...clip, _humanLabelCount: (clip._humanLabelCount || 0) + 1 } : clip
+        )
+      )
+      return label
+    }
+    return addClipLabel(token, clipId, payload)
+  }
+
   async function handleSaveWebhooks(urls) {
     setError('')
     if (!hasApiSession) {
@@ -573,6 +607,17 @@ export default function DashboardApp() {
               onRunFusion={handleRunFusion}
               onExportAlerts={handleExportAlerts}
               onIngestSentinel={handleIngestSentinel}
+            />
+          }
+        />
+        <Route
+          path="clips"
+          element={
+            <ClipsReview
+              clips={clips}
+              sensors={sensors}
+              onFetchLabels={handleFetchLabels}
+              onAddLabel={handleAddLabel}
             />
           }
         />

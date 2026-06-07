@@ -4,8 +4,16 @@ from uuid import uuid4
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 
 from app.config import get_settings
-from app.repositories import create_alert, create_audio_clip, require_sensor
-from app.schemas import AlertCreate, AlertType, ClipUploadResponse
+from app.repositories import (
+    create_alert,
+    create_audio_clip,
+    create_audio_label,
+    get_clip,
+    list_clips_for_org,
+    list_labels_for_clip,
+    require_sensor,
+)
+from app.schemas import AlertCreate, AlertType, AudioClip, AudioLabel, AudioLabelCreate, ClipUploadResponse
 from app.security import get_current_user, org_id_for_user
 from app.services.audio_classifier import classify_clip
 
@@ -41,7 +49,14 @@ async def upload_clip(
     destination.write_bytes(contents)
 
     classifier_result = classify_clip(destination)
-    clip_id = create_audio_clip(destination, org_id=org_id, sensor_id=sensor_id)
+    clip_id = create_audio_clip(
+        destination,
+        org_id=org_id,
+        sensor_id=sensor_id,
+        classifier_label=classifier_result.label,
+        classifier_confidence=classifier_result.confidence,
+        classifier_model_version=classifier_result.model_version,
+    )
     alert_metadata = {"model_domain": classifier_result.model_domain} if classifier_result.model_domain else None
     generated_alert = create_alert(
         org_id,
@@ -71,3 +86,31 @@ async def upload_clip(
         classifier_model_version=classifier_result.model_version,
         generated_alert=generated_alert,
     )
+
+
+@router.get("", response_model=list[AudioClip])
+def list_clips(
+    limit: int = 50,
+    current_user: dict = Depends(get_current_user),
+) -> list[AudioClip]:
+    return list_clips_for_org(org_id_for_user(current_user), limit=min(limit, 200))
+
+
+@router.get("/{clip_id}/labels", response_model=list[AudioLabel])
+def get_clip_labels(clip_id: int, current_user: dict = Depends(get_current_user)) -> list[AudioLabel]:
+    clip = get_clip(clip_id, org_id_for_user(current_user))
+    if clip is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Clip not found")
+    return list_labels_for_clip(clip_id)
+
+
+@router.post("/{clip_id}/labels", response_model=AudioLabel, status_code=status.HTTP_201_CREATED)
+def add_clip_label(
+    clip_id: int,
+    payload: AudioLabelCreate,
+    current_user: dict = Depends(get_current_user),
+) -> AudioLabel:
+    clip = get_clip(clip_id, org_id_for_user(current_user))
+    if clip is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Clip not found")
+    return create_audio_label(clip_id, current_user["id"], payload)
