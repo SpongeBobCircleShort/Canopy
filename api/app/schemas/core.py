@@ -158,6 +158,19 @@ class Alert(AlertCreate):
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
+class PaginatedAlerts(BaseModel):
+    items: list["Alert"]
+    total: int
+    limit: int
+    offset: int
+
+
+class HeartbeatResponse(BaseModel):
+    sensor_id: int
+    last_heard_at: datetime
+    status: str
+
+
 class SatelliteChangeSource(str, Enum):
     manual = "manual"
     sentinel_2 = "sentinel_2"

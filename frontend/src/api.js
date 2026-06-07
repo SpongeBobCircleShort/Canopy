@@ -40,6 +40,13 @@ export async function fetchSensors(token) {
   return request('/api/sensors', { headers: authHeaders(token) })
 }
 
+export async function sendSensorHeartbeat(token, sensorId) {
+  return request(`/api/sensors/${sensorId}/heartbeat`, {
+    method: 'POST',
+    headers: authHeaders(token),
+  })
+}
+
 export async function fetchRegions(token) {
   return request('/api/regions', { headers: authHeaders(token) })
 }

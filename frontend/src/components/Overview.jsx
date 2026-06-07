@@ -11,6 +11,8 @@ export default function Overview({
 }) {
   const openAlerts = alerts.filter((a) => a.status === 'open')
   const fusedAlerts = alerts.filter((a) => a.type === 'fusion' || a.type === 'fused_logging_risk')
+  const onlineSensors = sensors.filter((s) => s.status === 'online').length
+  const offlineSensors = sensors.filter((s) => s.status === 'offline').length
 
   function formatPercent(value) {
     return value === undefined || value === null ? 'n/a' : `${Math.round(Number(value) * 100)}%`
@@ -50,8 +52,12 @@ export default function Overview({
           <span>Open alerts</span>
         </div>
         <div className="glass-card">
-          <strong>{sensors.length}</strong>
-          <span>Sensors</span>
+          <strong>{onlineSensors}</strong>
+          <span>Online</span>
+        </div>
+        <div className="glass-card">
+          <strong>{offlineSensors}</strong>
+          <span>Offline</span>
         </div>
         <div className="glass-card">
           <strong>{satelliteChanges.length}</strong>

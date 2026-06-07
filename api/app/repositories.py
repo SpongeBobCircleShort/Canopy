@@ -104,6 +104,15 @@ def _region_from_row(row: Any) -> Region:
     )
 
 
+def _sensor_status(last_heard_at_raw: Any) -> str:
+    lha = _coerce_datetime(last_heard_at_raw)
+    if lha is None:
+        return "registered"
+    if datetime.now(timezone.utc) - lha < timedelta(minutes=15):
+        return "online"
+    return "offline"
+
+
 def _sensor_from_row(row: Any) -> Sensor:
     return Sensor(
         id=_row_get(row, "id"),
@@ -112,7 +121,7 @@ def _sensor_from_row(row: Any) -> Sensor:
         device_type=_row_get(row, "device_type"),
         region_id=_row_get(row, "region_id"),
         location=Coordinates(lat=float(_row_get(row, "lat")), lon=float(_row_get(row, "lon"))),
-        status="online" if _row_get(row, "last_heard_at") else "registered",
+        status=_sensor_status(_row_get(row, "last_heard_at")),
         last_heard_at=_coerce_datetime(_row_get(row, "last_heard_at")),
     )
 
@@ -476,6 +485,33 @@ def get_sensor(sensor_id: int, org_id: int | None = None) -> Sensor | None:
                 params.append(org_id)
             row = conn.execute(sql, params).fetchone()
         return _sensor_from_row(row) if row else None
+
+
+def update_sensor_heartbeat(sensor_id: int, org_id: int) -> Sensor | None:
+    placeholder = "?" if is_sqlite() else "%s"
+    with connection() as conn:
+        if is_sqlite():
+            conn.execute(
+                f"UPDATE sensors SET last_heard_at = datetime('now') WHERE id = {placeholder} AND org_id = {placeholder}",
+                (sensor_id, org_id),
+            )
+            row = conn.execute(
+                "SELECT id, org_id, name, device_type, region_id, lat, lon, last_heard_at FROM sensors WHERE id = ? AND org_id = ?",
+                (sensor_id, org_id),
+            ).fetchone()
+        else:
+            conn.execute(
+                f"UPDATE sensors SET last_heard_at = NOW() WHERE id = {placeholder} AND org_id = {placeholder}",
+                (sensor_id, org_id),
+            )
+            row = conn.execute(
+                """
+                SELECT id, org_id, name, device_type, region_id, ST_Y(location) AS lat, ST_X(location) AS lon, last_heard_at
+                FROM sensors WHERE id = %s AND org_id = %s
+                """,
+                (sensor_id, org_id),
+            ).fetchone()
+    return _sensor_from_row(row) if row else None
 
 
 def require_sensor(sensor_id: int, org_id: int | None = None) -> Sensor:

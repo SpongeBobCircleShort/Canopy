@@ -1340,3 +1340,41 @@ def test_labels_export_org_scoped() -> None:
         assert len(lines_a) == 2  # header + 1 row for org A
         assert len(lines_b) == 1  # header only for org B (no clips)
         assert "gunshot" in lines_a[1]
+
+
+def test_heartbeat_updates_last_heard_at() -> None:
+    _reset_test_database()
+    with TestClient(app) as client:
+        token = _signup(client, email="heartbeat@example.org", org_name="Heartbeat Org")
+        sensor = _create_sensor(client, token, name="HB-Sensor", lat=-3.0, lon=-60.0)
+
+        resp = client.post(f"/api/sensors/{sensor['id']}/heartbeat", headers=_auth_header(token))
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["sensor_id"] == sensor["id"]
+        assert body["status"] == "online"
+        assert body["last_heard_at"] is not None
+
+        sensors = client.get("/api/sensors", headers=_auth_header(token)).json()
+        updated = next(s for s in sensors if s["id"] == sensor["id"])
+        assert updated["status"] == "online"
+        assert updated["last_heard_at"] is not None
+
+
+def test_heartbeat_cross_org_rejected() -> None:
+    _reset_test_database()
+    with TestClient(app) as client:
+        token_a = _signup(client, email="hb_org_a@example.org", org_name="HB Org A")
+        token_b = _signup(client, email="hb_org_b@example.org", org_name="HB Org B")
+        sensor_a = _create_sensor(client, token_a, name="Sensor A", lat=-3.0, lon=-60.0)
+
+        resp = client.post(f"/api/sensors/{sensor_a['id']}/heartbeat", headers=_auth_header(token_b))
+        assert resp.status_code == 404
+
+
+def test_heartbeat_unknown_sensor() -> None:
+    _reset_test_database()
+    with TestClient(app) as client:
+        token = _signup(client, email="hb_unknown@example.org", org_name="HB Unknown Org")
+        resp = client.post("/api/sensors/9999/heartbeat", headers=_auth_header(token))
+        assert resp.status_code == 404
