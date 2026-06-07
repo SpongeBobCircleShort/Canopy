@@ -7,6 +7,7 @@ export default function Settings({
   invites,
   isAdmin,
   webhooks,
+  fusionSchedule,
   onCreateInvite,
   onRevokeInvite,
   onCreateRegion,
@@ -151,6 +152,31 @@ export default function Settings({
           </label>
           <button type="submit" disabled={!isAdmin}>Save webhooks</button>
         </form>
+
+        <div className="control-card glass-card">
+          <h2>Auto-fusion schedule</h2>
+          {fusionSchedule ? (
+            <>
+              <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+                <span className={`pill ${fusionSchedule.enabled ? 'high' : 'muted'}`}>
+                  {fusionSchedule.enabled ? `Every ${fusionSchedule.interval_minutes} min` : 'Disabled'}
+                </span>
+              </div>
+              {fusionSchedule.last_run_at ? (
+                <p style={{ fontSize: '0.78rem', color: '#888' }}>
+                  Last run: {new Date(fusionSchedule.last_run_at).toLocaleString()} · {fusionSchedule.last_run_orgs} org(s) · {fusionSchedule.last_run_created} alert(s) created
+                </p>
+              ) : (
+                <p style={{ fontSize: '0.78rem', color: '#666' }}>No run yet this session.</p>
+              )}
+            </>
+          ) : (
+            <p style={{ fontSize: '0.78rem', color: '#666' }}>Not connected to API.</p>
+          )}
+          <p style={{ fontSize: '0.75rem', color: '#555', marginTop: 10 }}>
+            Set <code>FUSION_AUTO_INTERVAL_MINUTES</code> in the API environment to enable automatic fusion runs. Set to <code>0</code> to disable.
+          </p>
+        </div>
       </section>
     </div>
   )

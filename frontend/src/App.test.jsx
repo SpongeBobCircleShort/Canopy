@@ -53,6 +53,7 @@ vi.mock('./api.js', () => ({
   fetchClips: vi.fn(() => Promise.resolve([])),
   fetchClipLabels: vi.fn(() => Promise.resolve([])),
   addClipLabel: vi.fn(),
+  fetchFusionSchedule: vi.fn(() => Promise.resolve({ enabled: false, interval_minutes: 0, last_run_at: null, last_run_created: 0, last_run_matched: 0, last_run_orgs: 0 })),
 }))
 
 afterEach(() => {

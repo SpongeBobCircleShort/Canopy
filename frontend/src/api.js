@@ -169,6 +169,10 @@ export async function downloadAlertsCsv(token) {
   return response.blob()
 }
 
+export async function fetchFusionSchedule(token) {
+  return request('/api/fusion/schedule', { headers: authHeaders(token) })
+}
+
 export async function fetchClips(token, limit = 50) {
   return request(`/api/clips?limit=${limit}`, { headers: authHeaders(token) })
 }

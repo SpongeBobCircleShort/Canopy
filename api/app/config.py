@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     audio_storage_path: str = "/tmp/canopy-audio"
     audio_model_path: str | None = None
     metrics_path: str | None = None
+    fusion_auto_interval_minutes: int = 0  # 0 = disabled
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

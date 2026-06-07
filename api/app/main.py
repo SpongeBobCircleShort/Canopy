@@ -12,7 +12,10 @@ from app.schemas import HealthResponse
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     initialize_database()
+    from app.services.scheduler import start_scheduler, stop_scheduler
+    start_scheduler(get_settings().fusion_auto_interval_minutes)
     yield
+    stop_scheduler()
 
 
 settings = get_settings()

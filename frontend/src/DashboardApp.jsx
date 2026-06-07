@@ -12,6 +12,7 @@ import {
   fetchAlerts,
   fetchClipLabels,
   fetchClips,
+  fetchFusionSchedule,
   fetchHealth,
   fetchInvites,
   fetchMe,
@@ -108,6 +109,7 @@ export default function DashboardApp() {
   const [token, setToken] = useState(() => window.localStorage.getItem('canopy_token') || '')
   const [clips, setClips] = useState([])
   const [webhooks, setWebhooks] = useState([])
+  const [fusionSchedule, setFusionSchedule] = useState(null)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const [isSimulating, setIsSimulating] = useState(false)
@@ -127,6 +129,7 @@ export default function DashboardApp() {
     setInvites(demo.invites)
     setClips([])
     setWebhooks([])
+    setFusionSchedule(null)
     setFusionResult(null)
     setNdviUploadResult(null)
     setHealth({ status: 'demo' })
@@ -171,6 +174,8 @@ export default function DashboardApp() {
       setWebhooks(notifResult.webhooks ?? [])
       const clipsResult = await fetchClips(nextToken).catch(() => [])
       setClips(clipsResult)
+      const scheduleResult = await fetchFusionSchedule(nextToken).catch(() => null)
+      setFusionSchedule(scheduleResult)
     } catch {
       window.localStorage.removeItem('canopy_token')
       setToken('')
@@ -629,6 +634,7 @@ export default function DashboardApp() {
               invites={invites}
               isAdmin={isAdmin}
               webhooks={webhooks}
+              fusionSchedule={fusionSchedule}
               onCreateInvite={handleCreateInvite}
               onRevokeInvite={handleRevokeInvite}
               onCreateRegion={handleCreateRegion}

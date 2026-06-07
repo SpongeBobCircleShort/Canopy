@@ -1246,3 +1246,16 @@ def test_clips_list_and_labeling() -> None:
         # 404 for unknown clip
         assert client.get("/api/clips/9999/labels", headers=_auth_header(token)).status_code == 404
         assert client.post("/api/clips/9999/labels", headers=_auth_header(token), json={"label": "test"}).status_code == 404
+
+
+def test_fusion_schedule_status_endpoint() -> None:
+    _reset_test_database()
+    with TestClient(app) as client:
+        token = _signup(client, email="sched@example.org", org_name="Sched Org")
+
+        resp = client.get("/api/fusion/schedule", headers=_auth_header(token))
+        assert resp.status_code == 200
+        body = resp.json()
+        assert "enabled" in body
+        assert "interval_minutes" in body
+        assert body["last_run_at"] is None  # no run yet in test
