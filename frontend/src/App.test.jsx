@@ -48,6 +48,7 @@ vi.mock('./api.js', () => ({
   runFusion: vi.fn(),
   updateAlertStatus: vi.fn(),
   downloadAlertsCsv: vi.fn(),
+  downloadLabelsCsv: vi.fn(),
   fetchNotificationSettings: vi.fn(() => Promise.resolve({ webhooks: [] })),
   updateNotificationSettings: vi.fn(),
   fetchClips: vi.fn(() => Promise.resolve([])),

@@ -9,6 +9,7 @@ import {
   createSatelliteChange,
   createSensor,
   downloadAlertsCsv,
+  downloadLabelsCsv,
   fetchAlerts,
   fetchClipLabels,
   fetchClips,
@@ -165,7 +166,7 @@ export default function DashboardApp() {
         ])
 
       setProfile(profileResult)
-      setAlerts(alertsResult)
+      setAlerts(alertsResult.items ?? alertsResult)
       setSensors(sensorsResult)
       setRegions(regionsResult)
       setSatelliteChanges(satelliteChangesResult)
@@ -555,6 +556,17 @@ export default function DashboardApp() {
     return addClipLabel(token, clipId, payload)
   }
 
+  async function handleExportLabels() {
+    if (!hasApiSession) return
+    const blob = await downloadLabelsCsv(token)
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = 'canopy-labels.csv'
+    link.click()
+    window.URL.revokeObjectURL(url)
+  }
+
   async function handleSaveWebhooks(urls) {
     setError('')
     if (!hasApiSession) {
@@ -623,6 +635,8 @@ export default function DashboardApp() {
               sensors={sensors}
               onFetchLabels={handleFetchLabels}
               onAddLabel={handleAddLabel}
+              onExportLabels={handleExportLabels}
+              isAdmin={isAdmin}
             />
           }
         />

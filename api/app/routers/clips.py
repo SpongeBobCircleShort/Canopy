@@ -1,7 +1,9 @@
+import csv
+from io import StringIO
 from pathlib import Path
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile, status
 
 from app.config import get_settings
 from app.repositories import (
@@ -10,11 +12,12 @@ from app.repositories import (
     create_audio_label,
     get_clip,
     list_clips_for_org,
+    list_clips_with_labels_for_org,
     list_labels_for_clip,
     require_sensor,
 )
 from app.schemas import AlertCreate, AlertType, AudioClip, AudioLabel, AudioLabelCreate, ClipUploadResponse
-from app.security import get_current_user, org_id_for_user
+from app.security import get_current_user, org_id_for_user, require_admin
 from app.services.audio_classifier import classify_clip
 
 router = APIRouter()
@@ -94,6 +97,31 @@ def list_clips(
     current_user: dict = Depends(get_current_user),
 ) -> list[AudioClip]:
     return list_clips_for_org(org_id_for_user(current_user), limit=min(limit, 200))
+
+
+@router.get("/labels/export", response_class=Response)
+def export_labels(current_user: dict = Depends(require_admin)) -> Response:
+    rows = list_clips_with_labels_for_org(org_id_for_user(current_user))
+    buffer = StringIO()
+    writer = csv.writer(buffer)
+    writer.writerow([
+        "label_id", "clip_id", "sensor_id", "file_url",
+        "human_label", "human_confidence",
+        "classifier_label", "classifier_confidence", "classifier_model_version",
+        "labeled_at", "clip_created_at",
+    ])
+    for row in rows:
+        writer.writerow([
+            row.get("label_id", ""), row.get("clip_id", ""), row.get("sensor_id", ""),
+            row.get("file_url", ""), row.get("human_label", ""), row.get("human_confidence", ""),
+            row.get("classifier_label", ""), row.get("classifier_confidence", ""),
+            row.get("classifier_model_version", ""), row.get("labeled_at", ""), row.get("clip_created_at", ""),
+        ])
+    return Response(
+        content=buffer.getvalue(),
+        media_type="text/csv",
+        headers={"Content-Disposition": 'attachment; filename="canopy-labels.csv"'},
+    )
 
 
 @router.get("/{clip_id}/labels", response_model=list[AudioLabel])

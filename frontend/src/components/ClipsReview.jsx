@@ -143,9 +143,10 @@ function ClipCard({ clip, sensors, onAddLabel }) {
   )
 }
 
-export default function ClipsReview({ clips, sensors, onFetchLabels, onAddLabel }) {
+export default function ClipsReview({ clips, sensors, onFetchLabels, onAddLabel, onExportLabels, isAdmin }) {
   const [localError, setLocalError] = useState('')
   const [localSuccess, setLocalSuccess] = useState('')
+  const [exporting, setExporting] = useState(false)
 
   async function handleClipAction(clipId, payload) {
     if (payload === null) {
@@ -156,10 +157,27 @@ export default function ClipsReview({ clips, sensors, onFetchLabels, onAddLabel 
     return result
   }
 
+  async function handleExport() {
+    if (!onExportLabels) return
+    setExporting(true)
+    try {
+      await onExportLabels()
+    } catch (err) {
+      setLocalError(err.message)
+    } finally {
+      setExporting(false)
+    }
+  }
+
   return (
     <div className="page-content">
       <header className="page-header">
         <h2>Clips Review</h2>
+        {isAdmin && (
+          <button className="export-button" onClick={handleExport} disabled={exporting} type="button">
+            {exporting ? 'Exporting…' : 'Export CSV'}
+          </button>
+        )}
       </header>
 
       <ToastStack

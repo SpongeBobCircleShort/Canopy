@@ -5,11 +5,12 @@ from io import StringIO
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 
+from app.repositories import count_alerts
 from app.repositories import create_alert as persist_alert
 from app.repositories import get_alert as load_alert
 from app.repositories import list_alerts as load_alerts
 from app.repositories import update_alert_status as persist_alert_status
-from app.schemas import Alert, AlertCreate, AlertStatus, AlertStatusUpdate, AlertType
+from app.schemas import Alert, AlertCreate, AlertStatus, AlertStatusUpdate, AlertType, PaginatedAlerts
 from app.security import get_current_user, org_id_for_user, require_admin
 
 router = APIRouter()
@@ -32,12 +33,14 @@ def _parse_bbox(raw_bbox: str | None) -> tuple[float, float, float, float] | Non
 
 def _filtered_alerts(
     org_id: int,
-    status_value: AlertStatus | None = Query(default=None, alias="status"),
-    type_value: AlertType | None = Query(default=None, alias="type"),
+    status_value: AlertStatus | None = None,
+    type_value: AlertType | None = None,
     sensor_id: int | None = None,
     start_time: datetime | None = None,
     end_time: datetime | None = None,
     bbox: str | None = None,
+    limit: int = 10_000,
+    offset: int = 0,
 ) -> list[Alert]:
     return load_alerts(
         org_id=org_id,
@@ -47,10 +50,12 @@ def _filtered_alerts(
         start_time=start_time,
         end_time=end_time,
         bbox=_parse_bbox(bbox),
+        limit=limit,
+        offset=offset,
     )
 
 
-@router.get("", response_model=list[Alert])
+@router.get("", response_model=PaginatedAlerts)
 def list_alerts(
     status_value: AlertStatus | None = Query(default=None, alias="status"),
     type_value: AlertType | None = Query(default=None, alias="type"),
@@ -58,9 +63,22 @@ def list_alerts(
     start_time: datetime | None = None,
     end_time: datetime | None = None,
     bbox: str | None = None,
+    limit: int = Query(default=100, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
     current_user: dict = Depends(get_current_user),
-) -> list[Alert]:
-    return _filtered_alerts(org_id_for_user(current_user), status_value, type_value, sensor_id, start_time, end_time, bbox)
+) -> PaginatedAlerts:
+    org_id = org_id_for_user(current_user)
+    items = _filtered_alerts(org_id, status_value, type_value, sensor_id, start_time, end_time, bbox, limit=limit, offset=offset)
+    total = count_alerts(
+        org_id=org_id,
+        status_filter=status_value,
+        alert_type=type_value,
+        sensor_id=sensor_id,
+        start_time=start_time,
+        end_time=end_time,
+        bbox=_parse_bbox(bbox),
+    )
+    return PaginatedAlerts(items=items, total=total, limit=limit, offset=offset)
 
 
 @router.post("", response_model=Alert, status_code=status.HTTP_201_CREATED)
@@ -105,7 +123,7 @@ def export_alerts(
         "ingestion_batch_id",
         "metadata",
     ])
-    for alert in _filtered_alerts(org_id_for_user(current_user), status_value, type_value, sensor_id, start_time, end_time, bbox):
+    for alert in _filtered_alerts(org_id_for_user(current_user), status_value, type_value, sensor_id, start_time, end_time, bbox, limit=10_000):
         writer.writerow(
             [
                 alert.id,

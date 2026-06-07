@@ -207,7 +207,9 @@ def test_alert_filters_bbox_status_type_and_sensor_id_in_sqlite() -> None:
             },
         )
         assert response.status_code == 200
-        alerts = response.json()
+        body = response.json()
+        alerts = body["items"]
+        assert body["total"] == 1
         assert len(alerts) == 1
         assert alerts[0]["id"] == inside["id"]
 
@@ -350,7 +352,7 @@ def test_e2e_org_scoped_mvp_flow() -> None:
 
         alerts = client.get("/api/alerts", headers=_auth_header(token), params={"sensor_id": sensor["id"], "type": "audio"})
         assert alerts.status_code == 200
-        assert alerts.json()[0]["id"] == alert_id
+        assert alerts.json()["items"][0]["id"] == alert_id
 
         status_update = client.patch(
             f"/api/alerts/{alert_id}/status",
@@ -654,7 +656,7 @@ def test_fusion_creates_metadata_priority_and_avoids_duplicates() -> None:
 
         listed = client.get("/api/alerts", headers=_auth_header(token), params={"type": "fusion"})
         assert listed.status_code == 200
-        assert listed.json()[0]["metadata"]["satellite_change_id"] == satellite["id"]
+        assert listed.json()["items"][0]["metadata"]["satellite_change_id"] == satellite["id"]
 
         duplicate = _run_fusion(client, token)
         assert duplicate["matched_count"] == 1
@@ -1259,3 +1261,82 @@ def test_fusion_schedule_status_endpoint() -> None:
         assert "enabled" in body
         assert "interval_minutes" in body
         assert body["last_run_at"] is None  # no run yet in test
+
+
+def test_labels_export_empty() -> None:
+    _reset_test_database()
+    with TestClient(app) as client:
+        token = _signup(client, email="export_empty@example.org", org_name="Export Empty Org")
+
+        resp = client.get("/api/clips/labels/export", headers=_auth_header(token))
+        assert resp.status_code == 200
+        assert resp.headers["content-type"].startswith("text/csv")
+        lines = resp.text.strip().splitlines()
+        assert len(lines) == 1  # header only
+        assert "label_id" in lines[0]
+        assert "classifier_label" in lines[0]
+
+
+def test_labels_export_includes_classifier_fields() -> None:
+    _reset_test_database()
+    with TestClient(app) as client:
+        token = _signup(client, email="export_fields@example.org", org_name="Export Fields Org")
+        sensor = _create_sensor(client, token)
+        audio = b"RIFF" + b"\x00" * 36 + b"data" + b"\x00" * 100
+
+        upload_resp = client.post(
+            "/api/clips/upload",
+            headers=_auth_header(token),
+            files={"file": ("chainsaw.wav", audio, "audio/wav")},
+            data={"sensor_id": str(sensor["id"])},
+        )
+        assert upload_resp.status_code == 201
+        clip_id = upload_resp.json()["clip_id"]
+
+        client.post(
+            f"/api/clips/{clip_id}/labels",
+            headers=_auth_header(token),
+            json={"label": "chainsaw", "confidence": 0.9},
+        )
+
+        resp = client.get("/api/clips/labels/export", headers=_auth_header(token))
+        assert resp.status_code == 200
+        lines = resp.text.strip().splitlines()
+        assert len(lines) == 2  # header + one row
+        assert "chainsaw" in lines[1]
+        header_cols = lines[0].split(",")
+        assert "classifier_label" in header_cols
+        assert "classifier_confidence" in header_cols
+        assert "classifier_model_version" in header_cols
+
+
+def test_labels_export_org_scoped() -> None:
+    _reset_test_database()
+    with TestClient(app) as client:
+        token_a = _signup(client, email="export_org_a@example.org", org_name="Export Org A")
+        token_b = _signup(client, email="export_org_b@example.org", org_name="Export Org B")
+
+        sensor_a = _create_sensor(client, token_a)
+        audio = b"RIFF" + b"\x00" * 36 + b"data" + b"\x00" * 100
+        upload_resp = client.post(
+            "/api/clips/upload",
+            headers=_auth_header(token_a),
+            files={"file": ("chainsaw.wav", audio, "audio/wav")},
+            data={"sensor_id": str(sensor_a["id"])},
+        )
+        clip_id_a = upload_resp.json()["clip_id"]
+        client.post(
+            f"/api/clips/{clip_id_a}/labels",
+            headers=_auth_header(token_a),
+            json={"label": "gunshot"},
+        )
+
+        resp_a = client.get("/api/clips/labels/export", headers=_auth_header(token_a))
+        resp_b = client.get("/api/clips/labels/export", headers=_auth_header(token_b))
+
+        lines_a = resp_a.text.strip().splitlines()
+        lines_b = resp_b.text.strip().splitlines()
+
+        assert len(lines_a) == 2  # header + 1 row for org A
+        assert len(lines_b) == 1  # header only for org B (no clips)
+        assert "gunshot" in lines_a[1]

@@ -541,6 +541,33 @@ def _alert_filter_clauses(
     return where, params
 
 
+def count_alerts(
+    *,
+    org_id: int,
+    status_filter: AlertStatus | None = None,
+    alert_type: AlertType | None = None,
+    sensor_id: int | None = None,
+    region_id: int | None = None,
+    start_time: datetime | None = None,
+    end_time: datetime | None = None,
+    bbox: AlertBBox | None = None,
+) -> int:
+    where, params = _alert_filter_clauses(
+        org_id=org_id,
+        status_filter=status_filter,
+        alert_type=alert_type,
+        sensor_id=sensor_id,
+        region_id=region_id,
+        start_time=start_time,
+        end_time=end_time,
+        bbox=bbox,
+    )
+    sql = f"SELECT COUNT(*) FROM alerts WHERE {' AND '.join(where)}"
+    with connection() as conn:
+        row = conn.execute(sql, params).fetchone()
+    return int(row[0]) if row else 0
+
+
 def list_alerts(
     *,
     org_id: int,
@@ -551,6 +578,8 @@ def list_alerts(
     start_time: datetime | None = None,
     end_time: datetime | None = None,
     bbox: AlertBBox | None = None,
+    limit: int = 10_000,
+    offset: int = 0,
 ) -> list[Alert]:
     where, params = _alert_filter_clauses(
         org_id=org_id,
@@ -562,7 +591,13 @@ def list_alerts(
         end_time=end_time,
         bbox=bbox,
     )
-    sql = f"{_select_alerts_sql()} WHERE {' AND '.join(where)} ORDER BY created_at DESC, id DESC"
+    placeholder = "?" if is_sqlite() else "%s"
+    sql = (
+        f"{_select_alerts_sql()} WHERE {' AND '.join(where)} "
+        f"ORDER BY created_at DESC, id DESC "
+        f"LIMIT {placeholder} OFFSET {placeholder}"
+    )
+    params = params + [limit, offset]
     with connection() as conn:
         rows = conn.execute(sql, params).fetchall()
         return [_alert_from_row(row) for row in rows]
@@ -812,7 +847,7 @@ def fused_alert_exists(org_id: int, acoustic_alert_id: int, satellite_change_id:
         and alert.metadata
         and alert.metadata.get("acoustic_alert_id") == acoustic_alert_id
         and alert.metadata.get("satellite_change_id") == satellite_change_id
-        for alert in list_alerts(org_id=org_id, alert_type=AlertType.fusion)
+        for alert in list_alerts(org_id=org_id, alert_type=AlertType.fusion, limit=10_000)
     )
 
 
@@ -1035,6 +1070,26 @@ def list_labels_for_clip(clip_id: int) -> list[AudioLabel]:
         )
         for row in rows
     ]
+
+
+def list_clips_with_labels_for_org(org_id: int) -> list[dict]:
+    """Return one row per human label, joined with clip classifier fields."""
+    with connection() as conn:
+        placeholder = "?" if is_sqlite() else "%s"
+        rows = conn.execute(
+            f"""
+            SELECT al.id AS label_id, al.clip_id, ac.sensor_id, ac.file_url,
+                   al.label AS human_label, al.confidence AS human_confidence,
+                   ac.classifier_label, ac.classifier_confidence, ac.classifier_model_version,
+                   al.labeled_at, ac.created_at AS clip_created_at
+            FROM audio_labels al
+            JOIN audio_clips ac ON al.clip_id = ac.id
+            WHERE ac.org_id = {placeholder}
+            ORDER BY al.labeled_at DESC, al.id DESC
+            """,
+            (org_id,),
+        ).fetchall()
+    return [dict(row) for row in rows]
 
 
 def create_audio_label(clip_id: int, user_id: int, payload: AudioLabelCreate) -> AudioLabel:

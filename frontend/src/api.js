@@ -173,6 +173,12 @@ export async function fetchFusionSchedule(token) {
   return request('/api/fusion/schedule', { headers: authHeaders(token) })
 }
 
+export async function downloadLabelsCsv(token) {
+  const response = await fetch(`${API_BASE_URL}/api/clips/labels/export`, { headers: authHeaders(token) })
+  if (!response.ok) throw new Error(`Labels export failed with ${response.status}`)
+  return response.blob()
+}
+
 export async function fetchClips(token, limit = 50) {
   return request(`/api/clips?limit=${limit}`, { headers: authHeaders(token) })
 }
