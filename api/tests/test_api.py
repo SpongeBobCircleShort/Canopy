@@ -1089,3 +1089,103 @@ def test_sentinel_ingest_creates_changes_when_ndvi_drops(monkeypatch: pytest.Mon
             assert change["metadata"]["baseline_ndvi"] == 0.70
             assert change["metadata"]["observation_ndvi"] == 0.30
 
+
+
+def test_notification_settings_crud_and_validation() -> None:
+    _reset_test_database()
+    with TestClient(app) as client:
+        token = _signup(client, email="notif@example.org", org_name="Notif Org")
+        me = client.get("/api/auth/me", headers=_auth_header(token)).json()
+        org_id = me["org_id"]
+
+        # Default is empty
+        resp = client.get(f"/api/organizations/{org_id}/notification-settings", headers=_auth_header(token))
+        assert resp.status_code == 200
+        assert resp.json()["webhooks"] == []
+
+        # Save valid URLs
+        resp = client.patch(
+            f"/api/organizations/{org_id}/notification-settings",
+            headers=_auth_header(token),
+            json={"webhooks": ["https://hooks.example.com/abc", "https://other.example.org/canopy"]},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["webhooks"] == ["https://hooks.example.com/abc", "https://other.example.org/canopy"]
+
+        # Read back
+        resp = client.get(f"/api/organizations/{org_id}/notification-settings", headers=_auth_header(token))
+        assert resp.status_code == 200
+        assert len(resp.json()["webhooks"]) == 2
+
+        # Reject invalid URL (no http/https scheme)
+        resp = client.patch(
+            f"/api/organizations/{org_id}/notification-settings",
+            headers=_auth_header(token),
+            json={"webhooks": ["ftp://bad-url.example.com"]},
+        )
+        assert resp.status_code == 422
+
+        # Clear webhooks
+        resp = client.patch(
+            f"/api/organizations/{org_id}/notification-settings",
+            headers=_auth_header(token),
+            json={"webhooks": []},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["webhooks"] == []
+
+
+def test_notification_fires_for_high_priority_alert(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.services import notifications
+
+    fired: list[dict] = []
+
+    def _fake_post(url: str, payload: dict) -> None:
+        fired.append({"url": url, "payload": payload})
+
+    monkeypatch.setattr(notifications, "_post_webhook", _fake_post)
+
+    _reset_test_database()
+    with TestClient(app) as client:
+        token = _signup(client, email="notif2@example.org", org_name="Notif Org 2")
+        me = client.get("/api/auth/me", headers=_auth_header(token)).json()
+        org_id = me["org_id"]
+
+        # Configure a webhook
+        client.patch(
+            f"/api/organizations/{org_id}/notification-settings",
+            headers=_auth_header(token),
+            json={"webhooks": ["https://hooks.example.com/test"]},
+        )
+
+        sensor = _create_sensor(client, token)
+
+        # Create a high-priority alert — webhook should fire
+        resp = client.post(
+            "/api/alerts",
+            headers=_auth_header(token),
+            json={
+                "type": "audio",
+                "location": {"lat": 21.0, "lon": 78.0},
+                "description": "Test high alert",
+                "priority": "high",
+            },
+        )
+        assert resp.status_code == 201
+        assert len(fired) == 1
+        assert fired[0]["url"] == "https://hooks.example.com/test"
+        assert fired[0]["payload"]["event"] == "alert.created"
+        assert fired[0]["payload"]["alert"]["priority"] == "high"
+
+        # Create a low-priority alert — no webhook
+        client.post(
+            "/api/alerts",
+            headers=_auth_header(token),
+            json={
+                "type": "audio",
+                "location": {"lat": 21.0, "lon": 78.0},
+                "description": "Test low alert",
+                "priority": "low",
+            },
+        )
+        assert len(fired) == 1  # Still only 1 — low priority not notified

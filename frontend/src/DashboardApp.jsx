@@ -13,6 +13,7 @@ import {
   fetchInvites,
   fetchMe,
   fetchNdviBatches,
+  fetchNotificationSettings,
   fetchRegions,
   fetchSatelliteChanges,
   fetchSensors,
@@ -20,6 +21,7 @@ import {
   revokeInvite,
   runFusion,
   updateAlertStatus,
+  updateNotificationSettings,
   uploadClip,
   uploadNdviCsv,
 } from './api.js'
@@ -100,6 +102,7 @@ export default function DashboardApp() {
   const [profile, setProfile] = useState(initialDemo.profile)
   const [invites, setInvites] = useState(initialDemo.invites)
   const [token, setToken] = useState(() => window.localStorage.getItem('canopy_token') || '')
+  const [webhooks, setWebhooks] = useState([])
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const [isSimulating, setIsSimulating] = useState(false)
@@ -117,6 +120,7 @@ export default function DashboardApp() {
     setNdviBatches(demo.ndviBatches)
     setProfile(demo.profile)
     setInvites(demo.invites)
+    setWebhooks([])
     setFusionResult(null)
     setNdviUploadResult(null)
     setHealth({ status: 'demo' })
@@ -136,7 +140,7 @@ export default function DashboardApp() {
       const healthResult = await fetchHealth()
       setHealth(healthResult)
       const profileResult = await fetchMe(nextToken)
-      const [alertsResult, sensorsResult, regionsResult, satelliteChangesResult, ndviBatchesResult, invitesResult] =
+      const [alertsResult, sensorsResult, regionsResult, satelliteChangesResult, ndviBatchesResult, invitesResult, notifResult] =
         await Promise.all([
           fetchAlerts(nextToken),
           fetchSensors(nextToken),
@@ -146,6 +150,9 @@ export default function DashboardApp() {
           profileResult.role === 'admin' && profileResult.org_id
             ? fetchInvites(nextToken, profileResult.org_id)
             : Promise.resolve([]),
+          profileResult.role === 'admin' && profileResult.org_id
+            ? fetchNotificationSettings(nextToken, profileResult.org_id).catch(() => ({ webhooks: [] }))
+            : Promise.resolve({ webhooks: [] }),
         ])
 
       setProfile(profileResult)
@@ -155,6 +162,7 @@ export default function DashboardApp() {
       setSatelliteChanges(satelliteChangesResult)
       setNdviBatches(ndviBatchesResult)
       setInvites(invitesResult)
+      setWebhooks(notifResult.webhooks ?? [])
     } catch {
       window.localStorage.removeItem('canopy_token')
       setToken('')
@@ -508,6 +516,18 @@ export default function DashboardApp() {
     await refreshData()
   }
 
+  async function handleSaveWebhooks(urls) {
+    setError('')
+    if (!hasApiSession) {
+      setWebhooks(urls)
+      setMessage(`Saved ${urls.length} demo webhook(s).`)
+      return
+    }
+    const result = await updateNotificationSettings(token, profile.org_id, { webhooks: urls })
+    setWebhooks(result.webhooks)
+    setMessage(`Saved ${result.webhooks.length} webhook(s).`)
+  }
+
   async function handleExportAlerts() {
     const blob = hasApiSession ? await downloadAlertsCsv(token) : new Blob([alertsToCsv(alerts)], { type: 'text/csv' })
     const url = window.URL.createObjectURL(blob)
@@ -563,10 +583,12 @@ export default function DashboardApp() {
               regions={regions}
               invites={invites}
               isAdmin={isAdmin}
+              webhooks={webhooks}
               onCreateInvite={handleCreateInvite}
               onRevokeInvite={handleRevokeInvite}
               onCreateRegion={handleCreateRegion}
               onCreateSensor={handleCreateSensor}
+              onSaveWebhooks={handleSaveWebhooks}
             />
           }
         />

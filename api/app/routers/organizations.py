@@ -6,11 +6,13 @@ from app.repositories import (
     create_invite,
     create_organization,
     get_organization,
+    get_org_webhooks,
     list_invites_for_org,
     list_organizations,
     revoke_invite,
+    set_org_webhooks,
 )
-from app.schemas import Organization, OrganizationCreate, OrganizationInvite, OrganizationInviteCreate, OrganizationInviteCreated
+from app.schemas import NotificationSettings, NotificationSettingsUpdate, Organization, OrganizationCreate, OrganizationInvite, OrganizationInviteCreate, OrganizationInviteCreated
 from app.security import get_current_user, org_id_for_user, require_admin
 
 router = APIRouter()
@@ -64,6 +66,26 @@ def create_org_invite(
 def list_org_invites(org_id: int, current_user: dict = Depends(require_admin)) -> list[OrganizationInvite]:
     _require_same_org_admin(org_id, current_user)
     return list_invites_for_org(org_id)
+
+
+@router.get("/{org_id}/notification-settings", response_model=NotificationSettings)
+def get_notification_settings(org_id: int, current_user: dict = Depends(require_admin)) -> NotificationSettings:
+    _require_same_org_admin(org_id, current_user)
+    return NotificationSettings(webhooks=get_org_webhooks(org_id))
+
+
+@router.patch("/{org_id}/notification-settings", response_model=NotificationSettings)
+def update_notification_settings(
+    org_id: int,
+    payload: NotificationSettingsUpdate,
+    current_user: dict = Depends(require_admin),
+) -> NotificationSettings:
+    _require_same_org_admin(org_id, current_user)
+    invalid = [url for url in payload.webhooks if url and not url.startswith(("http://", "https://"))]
+    if invalid:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=f"Invalid webhook URLs: {invalid}")
+    webhooks = set_org_webhooks(org_id, payload.webhooks)
+    return NotificationSettings(webhooks=webhooks)
 
 
 @router.post("/{org_id}/invites/{invite_id}/revoke", response_model=OrganizationInvite)

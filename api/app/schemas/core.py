@@ -41,6 +41,14 @@ class Organization(OrganizationCreate):
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
+class NotificationSettings(BaseModel):
+    webhooks: list[str] = Field(default_factory=list)
+
+
+class NotificationSettingsUpdate(BaseModel):
+    webhooks: list[str]
+
+
 
 
 class InviteStatus(str, Enum):

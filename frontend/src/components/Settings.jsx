@@ -6,15 +6,18 @@ export default function Settings({
   regions,
   invites,
   isAdmin,
+  webhooks,
   onCreateInvite,
   onRevokeInvite,
   onCreateRegion,
-  onCreateSensor
+  onCreateSensor,
+  onSaveWebhooks,
 }) {
   const [inviteForm, setInviteForm] = useState({ email: '', role: 'member' })
   const [regionForm, setRegionForm] = useState({ name: '', description: '', boundary: '' })
   const [sensorForm, setSensorForm] = useState({ name: '', device_type: 'forest-listening-unit', region_id: '', lat: '', lon: '' })
-  
+  const [webhookInput, setWebhookInput] = useState(webhooks?.join('\n') ?? '')
+
   const [localError, setLocalError] = useState('')
   const [localSuccess, setLocalSuccess] = useState('')
 
@@ -121,6 +124,32 @@ export default function Settings({
             <input type="number" step="any" value={sensorForm.lon} onChange={(e) => setSensorForm({ ...sensorForm, lon: e.target.value })} required />
           </label>
           <button type="submit" disabled={!isAdmin}>Create sensor</button>
+        </form>
+
+        <form
+          className="control-card glass-card"
+          onSubmit={(e) => {
+            e.preventDefault()
+            const urls = webhookInput.split('\n').map((u) => u.trim()).filter(Boolean)
+            submitWithLocalError(() => onSaveWebhooks(urls), 'Webhook settings saved.')
+          }}
+        >
+          <h2>Alert webhooks</h2>
+          <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: 8 }}>
+            Canopy will POST high/critical alerts to each URL (one per line). Slack incoming webhooks and custom endpoints are both supported.
+          </p>
+          <label>
+            Webhook URLs
+            <textarea
+              rows={4}
+              placeholder={'https://hooks.slack.com/services/...\nhttps://your-server.example/canopy-alerts'}
+              value={webhookInput}
+              onChange={(e) => setWebhookInput(e.target.value)}
+              disabled={!isAdmin}
+              style={{ fontFamily: 'monospace', fontSize: '0.8rem', resize: 'vertical' }}
+            />
+          </label>
+          <button type="submit" disabled={!isAdmin}>Save webhooks</button>
         </form>
       </section>
     </div>

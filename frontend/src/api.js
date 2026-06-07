@@ -168,3 +168,15 @@ export async function downloadAlertsCsv(token) {
   if (!response.ok) throw new Error(`Export failed with ${response.status}`)
   return response.blob()
 }
+
+export async function fetchNotificationSettings(token, orgId) {
+  return request(`/api/organizations/${orgId}/notification-settings`, { headers: authHeaders(token) })
+}
+
+export async function updateNotificationSettings(token, orgId, payload) {
+  return request(`/api/organizations/${orgId}/notification-settings`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...authHeaders(token) },
+    body: JSON.stringify(payload),
+  })
+}
