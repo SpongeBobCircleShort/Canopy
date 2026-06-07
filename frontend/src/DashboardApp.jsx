@@ -598,6 +598,7 @@ export default function DashboardApp() {
             <Overview
               alerts={alerts}
               sensors={sensors}
+              regions={regions}
               satelliteChanges={satelliteChanges}
               onUpdateAlertStatus={handleUpdateAlertStatus}
               isAdmin={isAdmin}

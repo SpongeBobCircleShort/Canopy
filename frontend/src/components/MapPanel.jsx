@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useMemo, useState } from 'react'
-import { CircleMarker, MapContainer, Popup, TileLayer, useMap, useMapEvents } from 'react-leaflet'
+import { CircleMarker, GeoJSON, MapContainer, Popup, TileLayer, useMap, useMapEvents } from 'react-leaflet'
 
 function alertStyle(alert, scale) {
   const base = { color: '#111111', weight: Math.max(1, 4 * scale), fillOpacity: 1 }
@@ -37,7 +37,7 @@ function satelliteChangeColor(source) {
   }
 }
 
-function DynamicMarkers({ alerts, sensors, satelliteChanges }) {
+function DynamicMarkers({ alerts, sensors, satelliteChanges, regions = [] }) {
   const map = useMapEvents({
     zoom() {
       setZoom(map.getZoom())
@@ -48,6 +48,19 @@ function DynamicMarkers({ alerts, sensors, satelliteChanges }) {
 
   return (
     <>
+      {regions.filter((r) => r.boundary).map((region) => {
+        let geo
+        try { geo = typeof region.boundary === 'string' ? JSON.parse(region.boundary) : region.boundary } catch { return null }
+        return (
+          <GeoJSON
+            key={`region-${region.id}`}
+            data={geo}
+            style={{ color: '#62d2c1', weight: 1.5, fillOpacity: 0.07, dashArray: '6 4' }}
+          >
+            <Popup><strong>{region.name}</strong></Popup>
+          </GeoJSON>
+        )
+      })}
       {sensors.map((sensor) => {
         if (!sensor.location?.lat || !sensor.location?.lon) return null
         return (
@@ -166,7 +179,7 @@ function AutoFitBounds({ alerts, sensors, satelliteChanges }) {
   return null
 }
 
-export default function MapPanel({ alerts, sensors, satelliteChanges = [] }) {
+export default function MapPanel({ alerts, sensors, satelliteChanges = [], regions = [] }) {
   const firstSatellitePoint = satelliteChanges.find((change) => change.latitude !== null && change.longitude !== null)
   const center = alerts[0]?.location ?? sensors[0]?.location ?? (firstSatellitePoint ? { lat: firstSatellitePoint.latitude, lon: firstSatellitePoint.longitude } : { lat: 21, lon: 78 })
 
@@ -178,7 +191,7 @@ export default function MapPanel({ alerts, sensors, satelliteChanges = [] }) {
           url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
         />
         <AutoFitBounds alerts={alerts} sensors={sensors} satelliteChanges={satelliteChanges} />
-        <DynamicMarkers alerts={alerts} sensors={sensors} satelliteChanges={satelliteChanges} />
+        <DynamicMarkers alerts={alerts} sensors={sensors} satelliteChanges={satelliteChanges} regions={regions} />
       </MapContainer>
     </section>
   )

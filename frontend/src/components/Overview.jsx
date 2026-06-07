@@ -1,10 +1,11 @@
 import MapPanel from './MapPanel.jsx'
 
-export default function Overview({ 
-  alerts, 
-  sensors, 
-  satelliteChanges, 
-  onUpdateAlertStatus, 
+export default function Overview({
+  alerts,
+  sensors,
+  regions,
+  satelliteChanges,
+  onUpdateAlertStatus,
   isAdmin,
   isSimulating,
   setIsSimulating
@@ -70,7 +71,7 @@ export default function Overview({
       </div>
 
       <div className="dashboard-grid">
-        <MapPanel alerts={alerts} sensors={sensors} satelliteChanges={satelliteChanges} />
+        <MapPanel alerts={alerts} sensors={sensors} satelliteChanges={satelliteChanges} regions={regions} />
         
         <aside className="sidebar" aria-label="Recent alerts">
           {/* Priority Distribution CSS Chart */}
