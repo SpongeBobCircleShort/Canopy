@@ -115,6 +115,7 @@ export default function DashboardApp() {
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const [isSimulating, setIsSimulating] = useState(false)
+  const [lastUpdatedAt, setLastUpdatedAt] = useState(null)
 
   const hasApiSession = Boolean(token)
   const isAuthenticated = true
@@ -180,6 +181,7 @@ export default function DashboardApp() {
       setClips(clipsResult)
       const scheduleResult = await fetchFusionSchedule(nextToken).catch(() => null)
       setFusionSchedule(scheduleResult)
+      setLastUpdatedAt(new Date().toISOString())
     } catch {
       window.localStorage.removeItem('canopy_token')
       setToken('')
@@ -192,6 +194,13 @@ export default function DashboardApp() {
     refreshData().catch((err) => setError(err.message))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  useEffect(() => {
+    if (!hasApiSession) return undefined
+    const interval = setInterval(() => { refreshData().catch(() => {}) }, 30000)
+    return () => clearInterval(interval)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasApiSession])
 
   useEffect(() => {
     if (!isSimulating) return undefined
@@ -619,6 +628,8 @@ export default function DashboardApp() {
               isAdmin={isAdmin}
               isSimulating={isSimulating}
               setIsSimulating={setIsSimulating}
+              lastUpdatedAt={lastUpdatedAt}
+              onRefresh={() => refreshData().catch(() => {})}
             />
           }
         />
