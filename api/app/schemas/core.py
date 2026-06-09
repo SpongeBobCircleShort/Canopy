@@ -268,6 +268,14 @@ class SentinelIngestRequest(BaseModel):
     max_cloud_cover: float = Field(default=10.0, ge=0.0, le=100.0)
     loss_threshold: float = Field(default=-0.10, lt=0.0)
     grid_resolution: int = Field(default=10, ge=1, le=100, description="Grid cells along each axis")
+    forest_baseline_min: float = Field(
+        default=0.4, ge=0.0, le=1.0,
+        description="Only flag cells whose baseline NDVI was at least this (i.e. actually vegetated).",
+    )
+    min_valid_fraction: float = Field(
+        default=0.5, ge=0.0, le=1.0,
+        description="Minimum cloud-free (SCL-valid) pixel fraction for a cell to be usable in a scene.",
+    )
 
 
 class SentinelIngestResponse(BaseModel):

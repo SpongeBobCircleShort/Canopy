@@ -105,6 +105,20 @@ function DynamicMarkers({ alerts, sensors, satelliteChanges, regions = [] }) {
                   {change.description}
                 </>
               )}
+              {change.metadata?.discriminators && (
+                <>
+                  <br />
+                  <span style={{ fontSize: '0.85em', color: '#555' }}>
+                    {change.metadata.discriminators.likely_regional
+                      ? '⚠ likely regional (weather/season)'
+                      : '✓ local anomaly vs region'}
+                    {' · residual '}
+                    {Number(change.metadata.discriminators.local_residual).toFixed(2)}
+                    {' · '}
+                    {Math.round((change.metadata.discriminators.valid_fraction ?? 0) * 100)}% clear
+                  </span>
+                </>
+              )}
             </Popup>
           </CircleMarker>
         ))}

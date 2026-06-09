@@ -477,6 +477,60 @@ export const demoNdviBatches = [
 
 export const demoInvites = []
 
+// ── India forest-loss NDVI overlay ──────────────────────────────────────────
+// Representative Sentinel-2-derived NDVI grid over major Indian forest
+// landscapes. Each cell carries baseline vs recent NDVI; ndvi_delta < 0 is
+// canopy loss. Loss concentrates near each landscape's core, scaled by an
+// intensity factor, so the overlay shows realistic deforestation hotspots.
+const INDIA_FOREST_LANDSCAPES = [
+  { name: 'Western Ghats — Nilgiris', lat: 11.40, lon: 76.70, intensity: 0.95 },
+  { name: 'Namdapha — Arunachal', lat: 27.50, lon: 96.40, intensity: 0.85 },
+  { name: 'Similipal — Odisha', lat: 21.60, lon: 86.30, intensity: 0.70 },
+  { name: 'Nagarhole — Karnataka', lat: 12.00, lon: 76.10, intensity: 0.62 },
+  { name: 'Tadoba — Maharashtra', lat: 20.25, lon: 79.30, intensity: 0.52 },
+  { name: 'Kanha — Madhya Pradesh', lat: 22.30, lon: 80.60, intensity: 0.42 },
+]
+
+function buildIndiaNdviCells() {
+  const cells = []
+  const GRID = 7
+  const STEP = 0.05 // ~5.5 km cells
+  const half = (GRID - 1) / 2
+  let id = 1
+  for (const site of INDIA_FOREST_LANDSCAPES) {
+    for (let r = 0; r < GRID; r += 1) {
+      for (let c = 0; c < GRID; c += 1) {
+        const dr = r - half
+        const dc = c - half
+        const dist = Math.sqrt(dr * dr + dc * dc) / (half * Math.SQRT2)
+        // Deterministic pseudo-noise so the overlay is stable across renders/tests.
+        const seed = Math.sin((r + 1) * 12.9898 + (c + 1) * 78.233 + site.lat * 3.17) * 43758.5453
+        const noise = seed - Math.floor(seed)
+        const baseline = 0.74 + 0.14 * (1 - dist) + 0.04 * (noise - 0.5)
+        const lossCore = Math.max(0, 1 - dist * 1.35) * site.intensity
+        const loss = Math.max(0, lossCore * (0.4 + 0.45 * noise))
+        const recent = Math.max(0.05, baseline - loss)
+        const delta = Number((recent - baseline).toFixed(3))
+        cells.push({
+          id,
+          site: site.name,
+          lat: Number((site.lat + dr * STEP).toFixed(4)),
+          lon: Number((site.lon + dc * STEP).toFixed(4)),
+          baseline_ndvi: Number(baseline.toFixed(3)),
+          recent_ndvi: Number(recent.toFixed(3)),
+          ndvi_delta: delta,
+          severity: Number(Math.min(Math.abs(delta) / 0.5, 1).toFixed(3)),
+          cell_size_deg: STEP,
+        })
+        id += 1
+      }
+    }
+  }
+  return cells
+}
+
+export const demoIndiaNdviCells = buildIndiaNdviCells()
+
 export function freshDemoState() {
   return {
     profile: structuredClone(demoProfile),

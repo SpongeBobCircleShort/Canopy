@@ -1106,6 +1106,75 @@ def test_sentinel_ingest_creates_changes_when_ndvi_drops(monkeypatch: pytest.Mon
             assert change["metadata"]["observation_ndvi"] == 0.30
 
 
+def test_sentinel_ingest_discriminates_local_loss_from_cloud_and_weather(monkeypatch: pytest.MonkeyPatch) -> None:
+    """
+    The discrimination layer should: mask cloudy cells (no-data), ignore
+    non-forest cells, NOT flag a uniform regional weather dip, and flag the one
+    cell with a genuine local NDVI collapse exceeding the regional trend.
+    """
+    from app.services import sentinel_ingestion as si
+    from app.schemas import SentinelIngestRequest
+
+    # 3x3 AOI. Baseline: forest everywhere except (2,2) which is water (0.10).
+    baseline = [[0.80, 0.80, 0.80], [0.80, 0.80, 0.80], [0.80, 0.80, 0.10]]
+    # Observation: a uniform -0.05 weather dip, plus a real clearing at (1,1).
+    observation = [[0.75, 0.75, 0.75], [0.75, 0.20, 0.75], [0.75, 0.75, 0.05]]
+
+    grid_calls = {"n": 0}
+
+    def fake_grid(item, grid_n):
+        grid_calls["n"] += 1
+        return baseline if grid_calls["n"] == 1 else observation
+
+    validity_calls = {"n": 0}
+
+    def fake_validity(item, grid_n):
+        validity_calls["n"] += 1
+        grid = [[1.0] * 3 for _ in range(3)]
+        if validity_calls["n"] != 1:  # observation window: cloud over (0,0)
+            grid[0][0] = 0.10
+        return grid
+
+    def fake_search(bbox, date_start, date_end, max_cloud_cover, limit=50):
+        return [{"id": "s", "properties": {"datetime": "2024-03-15T10:00:00Z", "eo:cloud_cover": 3.0}, "assets": {}}]
+
+    monkeypatch.setattr(si, "_stac_search", fake_search)
+    monkeypatch.setattr(si, "_compute_scene_ndvi_grid", fake_grid)
+    monkeypatch.setattr(si, "_compute_scene_validity", fake_validity)
+
+    created: list = []
+
+    class _Change:
+        def __init__(self, change_id: int) -> None:
+            self.id = change_id
+
+    def fake_create(org_id, payload):
+        created.append(payload)
+        return _Change(len(created))
+
+    request = SentinelIngestRequest(
+        bbox=[78.0, 21.0, 78.1, 21.1],
+        baseline_start="2023-09-01T00:00:00Z",
+        baseline_end="2023-09-30T23:59:59Z",
+        observation_start="2024-03-01T00:00:00Z",
+        observation_end="2024-03-31T23:59:59Z",
+        grid_resolution=3,
+        loss_threshold=-0.10,
+    )
+    resp = si.run_sentinel_ingest(request, org_id=1, create_satellite_change_fn=fake_create)
+
+    # Only the local clearing at (1,1) is flagged.
+    assert resp.created_change_count == 1
+    assert resp.grid_cells_evaluated == 9
+    assert resp.skipped_count == 8  # 6 weather-dip + 1 clouded no-data + 1 non-forest
+    change = created[0]
+    assert change.metadata["grid_cell"] == [1, 1]
+    disc = change.metadata["discriminators"]
+    assert disc["likely_regional"] is False
+    assert disc["local_residual"] < -0.4   # dropped far more than the regional median
+    assert disc["valid_fraction"] == 1.0   # clear pixels at this cell
+    assert disc["baseline_was_forest"] is True
+
 
 def test_notification_settings_crud_and_validation() -> None:
     _reset_test_database()

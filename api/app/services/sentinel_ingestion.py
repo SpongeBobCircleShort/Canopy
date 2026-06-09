@@ -25,6 +25,7 @@ import logging
 import math
 import struct
 import urllib.request
+from dataclasses import dataclass
 from datetime import date, datetime, timezone
 from typing import Any
 
@@ -41,6 +42,13 @@ log = logging.getLogger(__name__)
 _EARTHSEARCH_URL = "https://earth-search.aws.element84.com/v1"
 _COLLECTION = "sentinel-2-l2a"
 _HTTP_TIMEOUT = 30  # seconds
+
+# Sentinel-2 L2A Scene Classification Layer (SCL) class codes that are USABLE for
+# NDVI. Everything else — 0 no-data, 1 saturated, 2 dark area, 3 cloud shadow,
+# 8 cloud (medium prob), 9 cloud (high prob), 10 thin cirrus — is masked out
+# before a cell's NDVI is computed, so clouds and shadows cannot masquerade as
+# canopy loss.
+_SCL_VALID_CLASSES = frozenset({4, 5, 6, 7, 11})  # veg, bare soil, water, unclassified, snow
 
 
 # ---------------------------------------------------------------------------
@@ -75,6 +83,7 @@ def _stac_search(
                     "properties.eo:cloud_cover",
                     "assets.red.href",
                     "assets.nir.href",
+                    "assets.scl.href",
                 ],
             },
         }
@@ -125,92 +134,115 @@ def _read_cog_overview_bytes(href: str) -> bytes | None:
         return None
 
 
+def _last_overview_strip(raw: bytes) -> tuple[str, bytes] | None:
+    """
+    Walk a (Cloud-Optimised) TIFF's IFD chain and return ``(endian, strip_data)``
+    for the lowest-resolution (last) overview, read from the pre-fetched byte
+    slice. Shared by the reflectance (uint16) and SCL (uint8) parsers.
+
+    Returns None if parsing fails (callers fall back to stubs/proxies).
+    """
+    if len(raw) < 8:
+        return None
+
+    bo = raw[:2]
+    if bo == b"II":
+        endian = "<"
+    elif bo == b"MM":
+        endian = ">"
+    else:
+        return None
+
+    magic = struct.unpack_from(f"{endian}H", raw, 2)[0]
+    if magic != 42:  # Standard TIFF magic
+        return None
+
+    ifd_offset = struct.unpack_from(f"{endian}I", raw, 4)[0]
+
+    def read_ifd(offset: int) -> tuple[dict[int, Any], int]:
+        if offset + 2 > len(raw):
+            return {}, 0
+        n_entries = struct.unpack_from(f"{endian}H", raw, offset)[0]
+        tags: dict[int, Any] = {}
+        pos = offset + 2
+        for _ in range(n_entries):
+            if pos + 12 > len(raw):
+                break
+            tag, typ, count = struct.unpack_from(f"{endian}HHI", raw, pos)
+            val_offset = pos + 8
+            if typ == 3:  # SHORT
+                val = struct.unpack_from(f"{endian}H", raw, val_offset)[0]
+            elif typ == 4:  # LONG
+                val = struct.unpack_from(f"{endian}I", raw, val_offset)[0]
+            elif typ == 5:  # RATIONAL
+                val = struct.unpack_from(f"{endian}II", raw, val_offset)
+            else:
+                val = val_offset
+            tags[tag] = (count, val)
+            pos += 12
+        next_ifd = struct.unpack_from(f"{endian}I", raw, pos)[0] if pos + 4 <= len(raw) else 0
+        return tags, next_ifd
+
+    # Walk IFDs to find last overview (smallest image)
+    last_tags: dict[int, Any] = {}
+    offset = ifd_offset
+    while offset:
+        tags, next_off = read_ifd(offset)
+        if tags:
+            last_tags = tags
+        offset = next_off
+
+    # Tag 273=StripOffsets, 279=StripByteCounts
+    if 273 not in last_tags or 279 not in last_tags:
+        return None
+
+    strip_offset = last_tags[273][1]
+    strip_bytecount = last_tags[279][1]
+    if not isinstance(strip_bytecount, int) or strip_bytecount < 2:
+        return None
+    if strip_offset + strip_bytecount > len(raw):
+        # Data beyond our prefetch — return partial sample
+        strip_bytecount = len(raw) - strip_offset
+
+    return endian, raw[strip_offset: strip_offset + strip_bytecount]
+
+
 def _parse_tiff_overview_pixels(raw: bytes) -> list[float] | None:
     """
     Extract a flat list of normalised float pixel values from raw TIFF bytes.
-
-    We parse the TIFF IFD to locate the lowest-resolution (last) overview,
-    then read its tiles/strips from the pre-fetched byte slice.  Values are
-    normalised to [0, 1] assuming uint16 Sentinel-2 reflectance (max 10 000).
-
-    Returns None if parsing fails (caller falls back to stub).
+    Values are normalised to [0, 1] assuming uint16 Sentinel-2 reflectance
+    (scale factor 10 000 → 1.0). Returns None if parsing fails.
     """
     try:
-        if len(raw) < 8:
+        parsed = _last_overview_strip(raw)
+        if parsed is None:
             return None
-
-        # Detect byte order
-        bo = raw[:2]
-        if bo == b"II":
-            endian = "<"
-        elif bo == b"MM":
-            endian = ">"
-        else:
-            return None
-
-        magic = struct.unpack_from(f"{endian}H", raw, 2)[0]
-        if magic != 42:  # Standard TIFF magic
-            return None
-
-        ifd_offset = struct.unpack_from(f"{endian}I", raw, 4)[0]
-
-        def read_ifd(offset: int) -> tuple[dict[int, Any], int]:
-            if offset + 2 > len(raw):
-                return {}, 0
-            n_entries = struct.unpack_from(f"{endian}H", raw, offset)[0]
-            tags: dict[int, Any] = {}
-            pos = offset + 2
-            for _ in range(n_entries):
-                if pos + 12 > len(raw):
-                    break
-                tag, typ, count = struct.unpack_from(f"{endian}HHI", raw, pos)
-                val_offset = pos + 8
-                if typ == 3:  # SHORT
-                    val = struct.unpack_from(f"{endian}H", raw, val_offset)[0]
-                elif typ == 4:  # LONG
-                    val = struct.unpack_from(f"{endian}I", raw, val_offset)[0]
-                elif typ == 5:  # RATIONAL
-                    val = struct.unpack_from(f"{endian}II", raw, val_offset)
-                else:
-                    val = val_offset
-                tags[tag] = (count, val)
-                pos += 12
-            next_ifd = struct.unpack_from(f"{endian}I", raw, pos)[0] if pos + 4 <= len(raw) else 0
-            return tags, next_ifd
-
-        # Walk IFDs to find last overview (smallest image)
-        last_tags: dict[int, Any] = {}
-        offset = ifd_offset
-        while offset:
-            tags, next_off = read_ifd(offset)
-            if tags:
-                last_tags = tags
-            offset = next_off
-
-        # Tag 256=ImageWidth, 257=ImageLength, 278=RowsPerStrip, 279=StripByteCounts, 273=StripOffsets
-        if 273 not in last_tags or 279 not in last_tags:
-            return None
-
-        strip_offset = last_tags[273][1]
-        strip_bytecount = last_tags[279][1]
-
-        if not isinstance(strip_bytecount, int) or strip_bytecount < 2:
-            return None
-        if strip_offset + strip_bytecount > len(raw):
-            # Data beyond our prefetch — return partial sample
-            strip_bytecount = len(raw) - strip_offset
-
-        strip_data = raw[strip_offset: strip_offset + strip_bytecount]
-        # Interpret as uint16 samples normalised to reflectance
+        endian, strip_data = parsed
         n_samples = len(strip_data) // 2
         if n_samples == 0:
             return None
-        values = list(struct.unpack_from(f"{endian}{n_samples}H", strip_data))
-        # Sentinel-2 L2A reflectance scale factor: 10 000 → 1.0
+        values = struct.unpack_from(f"{endian}{n_samples}H", strip_data)
         return [min(v / 10_000.0, 1.0) for v in values]
-
     except Exception as exc:
         log.debug("TIFF parse error: %s", exc)
+        return None
+
+
+def _parse_scl_overview_classes(raw: bytes) -> list[int] | None:
+    """
+    Extract a flat list of SCL class codes (uint8) from raw SCL TIFF bytes.
+    Returns None if parsing fails (caller falls back to the cloud-cover proxy).
+    """
+    try:
+        parsed = _last_overview_strip(raw)
+        if parsed is None:
+            return None
+        _endian, strip_data = parsed
+        if not strip_data:
+            return None
+        return list(strip_data)  # uint8 class codes, one byte per pixel
+    except Exception as exc:
+        log.debug("SCL parse error: %s", exc)
         return None
 
 
@@ -293,27 +325,94 @@ def _median(values: list[float]) -> float:
     return s[mid] if n % 2 else (s[mid - 1] + s[mid]) / 2.0
 
 
-def _composite_ndvi(
-    items: list[dict[str, Any]],
-    grid_n: int,
-) -> list[list[float]]:
+def _compute_scene_validity(item: dict[str, Any], grid_n: int) -> list[list[float]]:
     """
-    Composite multiple scenes into one grid by taking the per-cell median
-    (cloud-free compositing approximation).
-    """
-    all_grids = [_compute_scene_ndvi_grid(item, grid_n) for item in items]
-    valid_grids = [g for g in all_grids if g is not None]
-    if not valid_grids:
-        return [[0.0] * grid_n for _ in range(grid_n)]
+    Per-cell fraction of cloud-free, usable pixels for a scene, in [0, 1].
 
-    composite: list[list[float]] = []
+    Uses the Sentinel-2 SCL band when available (per-pixel cloud/shadow/cirrus
+    masking). When SCL is missing or unparseable, falls back to a uniform proxy
+    derived from the scene-level ``eo:cloud_cover`` so the pipeline degrades
+    gracefully instead of trusting cloudy pixels blindly.
+    """
+    scl_href = (item.get("assets", {}).get("scl") or {}).get("href")
+    classes = None
+    if scl_href:
+        raw = _read_cog_overview_bytes(scl_href)
+        classes = _parse_scl_overview_classes(raw) if raw else None
+
+    if not classes:
+        cloud = float(item.get("properties", {}).get("eo:cloud_cover", 0.0) or 0.0)
+        proxy = max(0.0, min(1.0, 1.0 - cloud / 100.0))
+        return [[proxy] * grid_n for _ in range(grid_n)]
+
+    n = len(classes)
+    side = math.isqrt(n) or 1
+    block = max(1, side // grid_n)
+    validity: list[list[float]] = []
     for row_i in range(grid_n):
         row_vals: list[float] = []
         for col_i in range(grid_n):
-            cell_vals = [g[row_i][col_i] for g in valid_grids]
-            row_vals.append(_median(cell_vals))
-        composite.append(row_vals)
-    return composite
+            r0, c0 = row_i * block, col_i * block
+            cell = [
+                classes[min((r0 + dr) * side + (c0 + dc), n - 1)]
+                for dr in range(block)
+                for dc in range(block)
+            ]
+            valid = sum(1 for code in cell if code in _SCL_VALID_CLASSES)
+            row_vals.append(valid / len(cell) if cell else 0.0)
+        validity.append(row_vals)
+    return validity
+
+
+@dataclass
+class CompositeGrid:
+    """Cloud-masked composite over a date window."""
+    ndvi: list[list[float | None]]          # None where no clear observation exists
+    valid_fraction: list[list[float]]       # best per-cell clear-pixel fraction
+    observation_count: list[list[int]]      # clear scenes contributing per cell
+
+
+def _composite_ndvi(
+    items: list[dict[str, Any]],
+    grid_n: int,
+    min_valid_fraction: float = 0.5,
+) -> CompositeGrid:
+    """
+    Cloud-masked median composite over a date window.
+
+    For each cell we take the median NDVI across only the scenes whose cell is
+    sufficiently cloud-free (``valid_fraction >= min_valid_fraction``). Cells
+    with no clear observation become ``None`` (no-data) rather than a misleading
+    average of cloudy pixels.
+    """
+    ndvi: list[list[float | None]] = [[None] * grid_n for _ in range(grid_n)]
+    valid_fraction = [[0.0] * grid_n for _ in range(grid_n)]
+    observation_count = [[0] * grid_n for _ in range(grid_n)]
+
+    scenes = []
+    for item in items:
+        grid = _compute_scene_ndvi_grid(item, grid_n)  # bare NDVI grid, or None
+        if grid is None:
+            continue
+        scenes.append((grid, _compute_scene_validity(item, grid_n)))
+
+    if not scenes:
+        return CompositeGrid(ndvi=ndvi, valid_fraction=valid_fraction, observation_count=observation_count)
+
+    for row_i in range(grid_n):
+        for col_i in range(grid_n):
+            clear_values: list[float] = []
+            best_validity = 0.0
+            for grid, validity in scenes:
+                cell_validity = validity[row_i][col_i]
+                best_validity = max(best_validity, cell_validity)
+                if cell_validity >= min_valid_fraction:
+                    clear_values.append(grid[row_i][col_i])
+            valid_fraction[row_i][col_i] = round(best_validity, 4)
+            observation_count[row_i][col_i] = len(clear_values)
+            if clear_values:
+                ndvi[row_i][col_i] = _median(clear_values)
+    return CompositeGrid(ndvi=ndvi, valid_fraction=valid_fraction, observation_count=observation_count)
 
 
 # ---------------------------------------------------------------------------
@@ -403,9 +502,9 @@ def run_sentinel_ingest(
             skipped_count=0,
         )
 
-    # 2. Build composite NDVI grids for each window
-    baseline_ndvi = _composite_ndvi(baseline_items, grid_n)
-    observation_ndvi = _composite_ndvi(observation_items, grid_n)
+    # 2. Build cloud-masked composite NDVI grids for each window
+    baseline = _composite_ndvi(baseline_items, grid_n, request.min_valid_fraction)
+    observation = _composite_ndvi(observation_items, grid_n, request.min_valid_fraction)
 
     # Determine the median observation date for image_date
     obs_dates: list[datetime] = []
@@ -421,58 +520,113 @@ def run_sentinel_ingest(
         obs_dates.sort()
         median_obs_date = obs_dates[len(obs_dates) // 2]
 
-    # 3. Evaluate each grid cell for NDVI loss
+    # 3. Pass 1 — forest-eligible deltas + the regional (common-mode) trend.
+    #    Weather, season, drought and atmospheric haze shift the WHOLE AOI
+    #    together, so the regional median delta is the benign drift we subtract
+    #    before deciding a cell is harmful loss.
     cells_evaluated = grid_n * grid_n
+    forest_deltas: list[float] = []
+    cell_state: dict[tuple[int, int], dict[str, Any]] = {}
+    loss_cells: set[tuple[int, int]] = set()
+
     for row_i in range(grid_n):
         for col_i in range(grid_n):
-            b_ndvi = baseline_ndvi[row_i][col_i]
-            o_ndvi = observation_ndvi[row_i][col_i]
-            delta = o_ndvi - b_ndvi
-
-            if delta >= request.loss_threshold:
+            b_ndvi = baseline.ndvi[row_i][col_i]
+            o_ndvi = observation.ndvi[row_i][col_i]
+            # No clear (cloud-free) observation in one of the windows → no-data.
+            if b_ndvi is None or o_ndvi is None:
                 skipped_count += 1
-                continue  # No significant loss
+                continue
+            # Was this cell even forest at baseline? Skip water/bare/cropland.
+            if b_ndvi < request.forest_baseline_min:
+                skipped_count += 1
+                continue
+            delta = o_ndvi - b_ndvi
+            forest_deltas.append(delta)
+            cell_state[(row_i, col_i)] = {"b": b_ndvi, "o": o_ndvi, "delta": delta}
+            if delta < request.loss_threshold:
+                loss_cells.add((row_i, col_i))
 
-            lat, lon = _cell_centroid(request.bbox, grid_n, row_i, col_i)
-            severity = min(abs(delta) / 0.5, 1.0)
-            confidence = 0.70  # Base confidence from STAC-only ingest
+    regional_median_delta = _median(forest_deltas) if forest_deltas else 0.0
 
-            # Reduce confidence for cells with borderline loss or high cloud
-            if abs(delta) < 0.15:
-                confidence = 0.55
+    # 4. Pass 2 — create changes for loss cells, scored by how much they exceed
+    #    the regional trend (local residual) and how spatially clustered they are.
+    for (row_i, col_i), state in cell_state.items():
+        if (row_i, col_i) not in loss_cells:
+            skipped_count += 1  # forest, but no significant local loss
+            continue
 
-            payload = SatelliteChangeCreate(
-                region_id=request.region_id,
-                source=SatelliteChangeSource.sentinel_2,
-                change_type=SatelliteChangeType.ndvi_drop,
-                severity_score=round(severity, 4),
-                confidence=round(confidence, 4),
-                baseline_start=request.baseline_start,
-                baseline_end=request.baseline_end,
-                observation_start=request.observation_start,
-                observation_end=request.observation_end,
-                image_date=median_obs_date,
-                latitude=lat,
-                longitude=lon,
-                description=(
-                    f"Sentinel-2 NDVI drop detected: baseline {b_ndvi:.3f}, "
-                    f"observation {o_ndvi:.3f}, delta {delta:.3f} "
-                    f"(grid cell [{row_i},{col_i}])."
-                ),
-                metadata={
-                    "baseline_ndvi": b_ndvi,
-                    "observation_ndvi": o_ndvi,
-                    "ndvi_delta": round(delta, 4),
-                    "loss_threshold": request.loss_threshold,
-                    "grid_cell": [row_i, col_i],
-                    "grid_resolution": grid_n,
-                    "baseline_scene_count": len(baseline_items),
-                    "observation_scene_count": len(observation_items),
+        b_ndvi, o_ndvi, delta = state["b"], state["o"], state["delta"]
+        local_residual = delta - regional_median_delta  # < 0 → dropped MORE than the region
+        neighbor_loss = sum(
+            1
+            for dr in (-1, 0, 1)
+            for dc in (-1, 0, 1)
+            if (dr or dc) and (row_i + dr, col_i + dc) in loss_cells
+        )
+        valid_fraction = round(
+            min(baseline.valid_fraction[row_i][col_i], observation.valid_fraction[row_i][col_i]), 4
+        )
+        # A drop no larger than the whole region's drift is likely weather/climate.
+        likely_regional = local_residual > -0.05
+
+        severity = min(abs(delta) / 0.5, 1.0)
+        confidence = (
+            0.45
+            + 0.20 * valid_fraction                               # clear-pixel support
+            + 0.25 * max(0.0, min(1.0, -local_residual / 0.30))   # local anomaly strength
+            + 0.10 * (neighbor_loss / 8.0)                        # spatial coherence
+        )
+        confidence = round(max(0.30, min(0.98, confidence)), 4)
+        change_type = (
+            SatelliteChangeType.canopy_loss
+            if severity >= 0.5 and not likely_regional and neighbor_loss >= 2
+            else SatelliteChangeType.ndvi_drop
+        )
+
+        lat, lon = _cell_centroid(request.bbox, grid_n, row_i, col_i)
+        payload = SatelliteChangeCreate(
+            region_id=request.region_id,
+            source=SatelliteChangeSource.sentinel_2,
+            change_type=change_type,
+            severity_score=round(severity, 4),
+            confidence=confidence,
+            baseline_start=request.baseline_start,
+            baseline_end=request.baseline_end,
+            observation_start=request.observation_start,
+            observation_end=request.observation_end,
+            image_date=median_obs_date,
+            latitude=lat,
+            longitude=lon,
+            description=(
+                f"Sentinel-2 NDVI drop: baseline {b_ndvi:.3f}, observation {o_ndvi:.3f}, "
+                f"delta {delta:.3f} (local residual {local_residual:+.3f} vs region "
+                f"{regional_median_delta:+.3f}; {valid_fraction:.0%} clear)"
+                f"{' — likely regional/weather' if likely_regional else ''}."
+            ),
+            metadata={
+                "baseline_ndvi": b_ndvi,
+                "observation_ndvi": o_ndvi,
+                "ndvi_delta": round(delta, 4),
+                "loss_threshold": request.loss_threshold,
+                "grid_cell": [row_i, col_i],
+                "grid_resolution": grid_n,
+                "baseline_scene_count": len(baseline_items),
+                "observation_scene_count": len(observation_items),
+                "discriminators": {
+                    "valid_fraction": valid_fraction,
+                    "baseline_clear_obs": baseline.observation_count[row_i][col_i],
+                    "observation_clear_obs": observation.observation_count[row_i][col_i],
+                    "regional_median_delta": round(regional_median_delta, 4),
+                    "local_residual": round(local_residual, 4),
+                    "neighbor_loss_count": neighbor_loss,
+                    "baseline_was_forest": True,
+                    "likely_regional": likely_regional,
                 },
-            )
-
-            change = create_satellite_change_fn(org_id, payload)
-            created_ids.append(change.id)
+            },
+        )
+        change = create_satellite_change_fn(org_id, payload)
+        created_ids.append(change.id)
 
     log.info(
         "Sentinel-2 ingest complete: %d created, %d skipped of %d cells",
