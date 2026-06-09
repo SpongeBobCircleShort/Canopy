@@ -195,6 +195,36 @@ describe('App', () => {
     })
   })
 
+  it('renders the open-set anomaly likelihood breakdown for anomaly alerts', async () => {
+    window.localStorage.setItem('canopy_token', 'demo-token')
+    apiData.alerts = [
+      {
+        id: 3,
+        type: 'anomaly',
+        status: 'open',
+        priority: 'high',
+        description: 'Anomalous sound detected (94%) — likely chainsaw.',
+        location: { lat: 21.0, lon: 78.0 },
+        sensor_id: 1,
+        classifier_label: 'chainsaw',
+        classifier_confidence: 0.71,
+        metadata: {
+          anomaly_score: 0.94,
+          is_anomaly: true,
+          predicted_kind: 'chainsaw',
+          likelihoods: { chainsaw: 0.71, vehicle: 0.12, unknown: 0.17 },
+        },
+      },
+    ]
+
+    renderAt('/app')
+
+    await screen.findByRole('heading', { name: /Global Overview/i })
+    expect(await screen.findByText(/Anomaly score:/i)).toBeInTheDocument()
+    expect(screen.getByText(/Likely source/i)).toBeInTheDocument()
+    expect(screen.getByText('Chainsaw')).toBeInTheDocument()
+  })
+
   it('renders dismissible toast notifications', () => {
     render(<ToastStack toasts={[{ id: 'demo-error', type: 'error', message: 'Something failed' }]} />)
 

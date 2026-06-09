@@ -120,6 +120,7 @@ class Sensor(SensorCreate):
 
 class AlertType(str, Enum):
     audio = "audio"
+    anomaly = "anomaly"
     satellite = "satellite"
     fusion = "fusion"
     fused_logging_risk = "fused_logging_risk"
@@ -312,6 +313,10 @@ class ClipUploadResponse(BaseModel):
     classifier_label: str
     classifier_confidence: float
     classifier_model_version: str
+    anomaly_score: float | None = None
+    is_anomaly: bool | None = None
+    predicted_kind: str | None = None
+    likelihoods: dict[str, float] | None = None
     generated_alert: Alert | None = None
 
 

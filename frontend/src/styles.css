@@ -1498,6 +1498,81 @@ body {
   background: #c87941;
 }
 
+/* Open-set anomaly detector output */
+.anomaly-metadata {
+  margin-top: 10px;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 6px;
+  font-size: 0.78rem;
+}
+
+.anomaly-score-line {
+  margin: 0 0 8px;
+  font-weight: 500;
+  color: #fff;
+}
+
+.anomaly-score-value {
+  color: var(--db-green);
+  font-weight: 600;
+}
+
+.anomaly-subtle {
+  color: #888;
+  font-weight: 300;
+}
+
+.likelihood-heading {
+  margin: 0 0 4px;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #888;
+}
+
+.likelihood-row {
+  display: grid;
+  grid-template-columns: 70px 1fr 38px;
+  align-items: center;
+  gap: 8px;
+  margin: 3px 0;
+  font-size: 0.74rem;
+  color: var(--db-text-2);
+}
+
+.likelihood-label {
+  text-transform: capitalize;
+}
+
+.likelihood-label.unknown {
+  color: #888;
+  font-style: italic;
+}
+
+.likelihood-bar-bg {
+  height: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.likelihood-bar-fill {
+  height: 100%;
+  background: var(--db-green);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.likelihood-bar-fill.unknown {
+  background: #6b7280;
+}
+
+.likelihood-pct {
+  text-align: right;
+  color: #aaa;
+}
+
 /* CSS-only chart */
 .priority-chart {
   margin-top: 16px;

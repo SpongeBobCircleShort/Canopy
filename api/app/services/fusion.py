@@ -120,7 +120,13 @@ def _compound_satellite_signal(satellite_contributions: list[float]) -> float:
 # ---------------------------------------------------------------------------
 
 def run_fusion(org_id: int, request: FusionRunRequest) -> FusionRunResponse:
-    acoustic_alerts = list_alerts(org_id=org_id, alert_type=AlertType.audio, region_id=request.region_id)
+    # Open-set anomaly alerts are the primary acoustic evidence; legacy "audio"
+    # classifier alerts are still honored so older data keeps fusing.
+    acoustic_alerts = [
+        alert
+        for acoustic_type in (AlertType.anomaly, AlertType.audio)
+        for alert in list_alerts(org_id=org_id, alert_type=acoustic_type, region_id=request.region_id)
+    ]
     satellite_changes = [
         change
         for change in list_satellite_changes(org_id, region_id=request.region_id)

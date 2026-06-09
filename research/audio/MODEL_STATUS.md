@@ -1,5 +1,24 @@
 # Canopy Audio Model Status
 
+## 2026-06-10: Pivot to open-set anomaly detection
+
+Following the forest_v1b finding below (the closed-set classifier does not learn
+a deployable cross-site boundary), the acoustic path is now a **catch-all
+open-set anomaly detector**: score deviation from normal forest background, then
+report a likelihood of what the anomaly seems to be, including `unknown`.
+
+Why: the anomaly score is learned from background alone, so it ships on incoming
+field background (e.g. the Indian forestry background delivery) with no positives
+required; per-class "what is it" prototypes light up incrementally as verified
+positives arrive — no full retrain. Design and fit/serve workflow:
+[../../docs/anomaly-detection.md](../../docs/anomaly-detection.md). Core math:
+`research/audio/anomaly.py`; fit CLI: `research/audio/fit_anomaly.py`.
+
+The promotion gate is unchanged: acoustic confidence re-enters fusion scoring
+only after chainsaw recall > 0.70 and background FP < 0.10 on held-out clips from
+at least 3 sites. The closed-set CNN is retained as the embedding backbone and
+for research only.
+
 ## 2026-06-02: forest_v1b Tambopata Held-Out Evaluation
 
 Purpose: measure whether the RFCx-based chainsaw detector generalizes to a site that never appears in train or validation.

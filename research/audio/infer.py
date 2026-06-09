@@ -49,6 +49,24 @@ class AudioInferenceService:
             "raw_label": raw_label,
         }
 
+    def embed(self, audio_path: Path):
+        """Return the model's pre-classifier embedding for a clip as a numpy array.
+
+        v1 supports the CNN architecture (the deployed threat model): its
+        ``features`` block ends in an AdaptiveAvgPool2d, so the flattened output
+        is a fixed-length embedding regardless of clip length.
+        """
+        architecture = str(self.model_config.get("architecture", "cnn")).lower()
+        if architecture not in {"cnn", "threat_cnn"} or not hasattr(self.model, "features"):
+            raise ValueError(
+                f"Anomaly embedding v1 supports the CNN architecture only; got '{architecture}'. "
+                "Re-fit the anomaly detector with a CNN embedder model."
+            )
+        features = self._features(audio_path)
+        with self.torch.no_grad():
+            embedding = self.model.features(features).flatten(1)[0]
+        return embedding.cpu().numpy()
+
     def _features(self, audio_path: Path):
         if _feature_type(self.model_config) == "waveform":
             return load_waveform_feature(

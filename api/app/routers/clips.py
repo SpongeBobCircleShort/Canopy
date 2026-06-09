@@ -18,7 +18,7 @@ from app.repositories import (
 )
 from app.schemas import AlertCreate, AlertType, AudioClip, AudioLabel, AudioLabelCreate, ClipUploadResponse
 from app.security import get_current_user, org_id_for_user, require_admin
-from app.services.audio_classifier import classify_clip
+from app.services.anomaly_detector import detect_anomaly
 
 router = APIRouter()
 
@@ -51,32 +51,40 @@ async def upload_clip(
     destination = storage_path / safe_name
     destination.write_bytes(contents)
 
-    classifier_result = classify_clip(destination)
+    result = detect_anomaly(destination)
+    # The clip's classifier_* columns store the open-set "what does it seem to be"
+    # call so existing clip/alert UI and label export keep working unchanged.
     clip_id = create_audio_clip(
         destination,
         org_id=org_id,
         sensor_id=sensor_id,
-        classifier_label=classifier_result.label,
-        classifier_confidence=classifier_result.confidence,
-        classifier_model_version=classifier_result.model_version,
+        classifier_label=result.predicted_kind,
+        classifier_confidence=result.predicted_confidence,
+        classifier_model_version=result.model_version,
     )
-    alert_metadata = {"model_domain": classifier_result.model_domain} if classifier_result.model_domain else None
+    high_priority = result.is_anomaly and result.predicted_kind in {"chainsaw", "gunshot"}
     generated_alert = create_alert(
         org_id,
         AlertCreate(
-            type=AlertType.audio,
+            type=AlertType.anomaly,
             sensor_id=sensor_id,
             region_id=sensor.region_id,
             location=sensor.location,
             description=(
-                f"Audio classifier detected '{classifier_result.label}' "
-                f"with {classifier_result.confidence:.0%} confidence."
+                f"Anomalous sound detected ({result.anomaly_score:.0%}) — "
+                f"likely {result.predicted_kind} ({result.predicted_confidence:.0%})."
             ),
-            priority="high" if classifier_result.label in {"chainsaw", "gunshot"} else "medium",
-            classifier_label=classifier_result.label,
-            classifier_confidence=classifier_result.confidence,
-            classifier_model_version=classifier_result.model_version,
-            metadata=alert_metadata,
+            priority="high" if high_priority else "medium",
+            classifier_label=result.predicted_kind,
+            classifier_confidence=result.predicted_confidence,
+            classifier_model_version=result.model_version,
+            metadata={
+                "anomaly_score": result.anomaly_score,
+                "is_anomaly": result.is_anomaly,
+                "predicted_kind": result.predicted_kind,
+                "likelihoods": result.likelihoods,
+                "model_version": result.model_version,
+            },
         ),
     )
 
@@ -84,9 +92,13 @@ async def upload_clip(
         clip_id=clip_id,
         filename=file.filename or safe_name,
         sensor_id=sensor_id,
-        classifier_label=classifier_result.label,
-        classifier_confidence=classifier_result.confidence,
-        classifier_model_version=classifier_result.model_version,
+        classifier_label=result.predicted_kind,
+        classifier_confidence=result.predicted_confidence,
+        classifier_model_version=result.model_version,
+        anomaly_score=result.anomaly_score,
+        is_anomaly=result.is_anomaly,
+        predicted_kind=result.predicted_kind,
+        likelihoods=result.likelihoods,
         generated_alert=generated_alert,
     )
 

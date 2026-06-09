@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     jwt_secret: str = "change-me-in-production"
     audio_storage_path: str = "/tmp/canopy-audio"
     audio_model_path: str | None = None
+    anomaly_model_path: str | None = None
     metrics_path: str | None = None
     fusion_auto_interval_minutes: int = 0  # 0 = disabled
     smtp_host: str | None = None
