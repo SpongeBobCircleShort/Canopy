@@ -54,6 +54,23 @@ function labelFromFile(file) {
   return 'chainsaw'
 }
 
+// Demo-mode mirror of the backend open-set anomaly detector's filename fallback.
+function anomalyFromFile(file) {
+  const name = file?.name?.toLowerCase() || ''
+  if (name.includes('background') || name.includes('unknown')) {
+    return { anomaly_score: 0.18, is_anomaly: false, predicted_kind: 'unknown', likelihoods: { unknown: 1.0 } }
+  }
+  const label = labelFromFile(file)
+  const tables = {
+    chainsaw: { anomaly_score: 0.93, likelihoods: { chainsaw: 0.82, vehicle: 0.06, unknown: 0.12 } },
+    gunshot: { anomaly_score: 0.90, likelihoods: { gunshot: 0.61, fire_crackle: 0.10, unknown: 0.29 } },
+    vehicle: { anomaly_score: 0.64, likelihoods: { vehicle: 0.55, chainsaw: 0.10, unknown: 0.35 } },
+    fire_crackle: { anomaly_score: 0.70, likelihoods: { fire_crackle: 0.50, unknown: 0.50 } },
+  }
+  const entry = tables[label] || tables.chainsaw
+  return { ...entry, is_anomaly: true, predicted_kind: label }
+}
+
 function csvValue(value) {
   const text = value === undefined || value === null ? '' : String(value)
   return /[",\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text
@@ -209,17 +226,26 @@ export default function DashboardApp() {
       const isAcoustic = Math.random() > 0.4
       const priorities = ['low', 'medium', 'high', 'critical']
       const randomPriority = priorities[Math.floor(Math.random() * priorities.length)]
+      const anomalyScore = Math.random() * 0.3 + 0.65
       const newAlert = {
         id: Date.now(),
-        type: isAcoustic ? 'audio' : 'fusion',
+        type: isAcoustic ? 'anomaly' : 'fusion',
         status: 'open',
         priority: randomPriority,
         description: isAcoustic
-          ? `Audio classifier detected chainsaw with ${Math.floor(Math.random() * 20 + 80)}% confidence.`
+          ? `Anomalous sound detected (${Math.round(anomalyScore * 100)}%) — likely chainsaw.`
           : 'Fusion alert: acoustic evidence matched satellite change.',
         location: { lat: 21.0 + (Math.random() * 10 - 5), lon: 78.0 + (Math.random() * 10 - 5) },
         created_at: new Date().toISOString(),
-        metadata: isAcoustic ? undefined : { fusion_score: Math.random() * 0.5 + 0.5 },
+        metadata: isAcoustic
+          ? {
+              anomaly_score: anomalyScore,
+              is_anomaly: true,
+              predicted_kind: 'chainsaw',
+              likelihoods: { chainsaw: 0.74, vehicle: 0.09, unknown: 0.17 },
+              model_version: 'anomaly-fallback-v0',
+            }
+          : { fusion_score: Math.random() * 0.5 + 0.5 },
       }
       setAlerts((previousAlerts) => [newAlert, ...previousAlerts])
     }, 2500)
@@ -314,21 +340,29 @@ export default function DashboardApp() {
     if (!hasApiSession) {
       const sensor = sensors.find((item) => String(item.id) === String(payload.sensorId)) || sensors[0]
       if (!sensor) throw new Error('Create a sensor before uploading a clip.')
-      const label = labelFromFile(payload.file)
+      const det = anomalyFromFile(payload.file)
+      const kindConfidence = det.likelihoods[det.predicted_kind] || 0
+      const highPriority = det.is_anomaly && (det.predicted_kind === 'chainsaw' || det.predicted_kind === 'gunshot')
       const alert = {
         id: nextId(alerts),
         org_id: profile.org_id,
-        type: 'audio',
+        type: 'anomaly',
         status: 'open',
-        priority: label === 'background_unknown' ? 'low' : 'high',
-        description: `Audio classifier detected '${label}' with 82% confidence.`,
+        priority: highPriority ? 'high' : 'medium',
+        description: `Anomalous sound detected (${Math.round(det.anomaly_score * 100)}%) — likely ${det.predicted_kind} (${Math.round(kindConfidence * 100)}%).`,
         location: sensor.location,
         sensor_id: sensor.id,
         region_id: sensor.region_id,
-        classifier_label: label,
-        classifier_confidence: 0.82,
-        classifier_model_version: 'placeholder-v0',
-        metadata: {},
+        classifier_label: det.predicted_kind,
+        classifier_confidence: kindConfidence,
+        classifier_model_version: 'anomaly-fallback-v0',
+        metadata: {
+          anomaly_score: det.anomaly_score,
+          is_anomaly: det.is_anomaly,
+          predicted_kind: det.predicted_kind,
+          likelihoods: det.likelihoods,
+          model_version: 'anomaly-fallback-v0',
+        },
         created_at: nowIso(),
         updated_at: nowIso(),
       }
@@ -427,7 +461,7 @@ export default function DashboardApp() {
   async function handleRunFusion(payload = {}) {
     setError('')
     if (!hasApiSession) {
-      const acousticAlert = alerts.find((alert) => alert.type === 'audio')
+      const acousticAlert = alerts.find((alert) => alert.type === 'anomaly' || alert.type === 'audio')
       const satelliteChange = satelliteChanges[0]
       if (!acousticAlert || !satelliteChange) {
         setFusionResult({ created_count: 0, matched_count: 0, alerts: [] })

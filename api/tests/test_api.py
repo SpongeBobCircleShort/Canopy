@@ -253,7 +253,7 @@ def test_csv_export_only_contains_current_org_alerts() -> None:
         }
 
 
-def test_upload_clip_uses_classifier_service_and_generates_sensor_alert() -> None:
+def test_upload_clip_runs_anomaly_detector_and_generates_sensor_alert() -> None:
     _reset_test_database()
     with TestClient(app) as client:
         token = _signup(client)
@@ -283,28 +283,39 @@ def test_upload_clip_uses_classifier_service_and_generates_sensor_alert() -> Non
         assert response.status_code == 201
         body = response.json()
         assert body["sensor_id"] == sensor["id"]
+        # The open-set detector reports "what does it seem to be" + an anomaly score.
+        assert body["predicted_kind"] == "chainsaw"
         assert body["classifier_label"] == "chainsaw"
-        assert body["generated_alert"]["sensor_id"] == sensor["id"]
-        assert body["generated_alert"]["classifier_label"] == "chainsaw"
-        assert body["generated_alert"]["location"] == sensor["location"]
+        assert 0.0 <= body["anomaly_score"] <= 1.0
+        assert body["is_anomaly"] is True
+        assert body["likelihoods"]["chainsaw"] > 0
+        alert = body["generated_alert"]
+        assert alert["type"] == "anomaly"
+        assert alert["sensor_id"] == sensor["id"]
+        assert alert["location"] == sensor["location"]
+        assert alert["metadata"]["predicted_kind"] == "chainsaw"
+        assert alert["metadata"]["likelihoods"]["chainsaw"] > 0
+        assert alert["metadata"]["anomaly_score"] == body["anomaly_score"]
 
 
-def test_upload_clip_uses_configured_audio_model(monkeypatch: pytest.MonkeyPatch) -> None:
-    from app.services import audio_classifier
+def test_upload_clip_uses_configured_anomaly_model(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.services import anomaly_detector
 
-    class FakeAudioModel:
-        def predict(self, file_path: Path) -> dict:
+    class FakeAnomalyDetector:
+        def score(self, file_path: Path) -> dict:
             return {
-                "label": "gunshot",
-                "confidence": 0.91,
-                "model_version": "threat-cnn-expanded-v6-bg-conservative",
-                "scores": {"gunshot": 0.91, "background_unknown": 0.09},
+                "anomaly_score": 0.94,
+                "is_anomaly": True,
+                "predicted_kind": "gunshot",
+                "predicted_confidence": 0.61,
+                "likelihoods": {"gunshot": 0.61, "fire_crackle": 0.10, "unknown": 0.29},
+                "model_version": "anomaly-v1",
             }
 
-    monkeypatch.setenv("AUDIO_MODEL_PATH", "/tmp/fake-canopy-model")
+    monkeypatch.setenv("ANOMALY_MODEL_PATH", "/tmp/fake-canopy-anomaly")
     get_settings.cache_clear()
-    audio_classifier._model_service.cache_clear()
-    monkeypatch.setattr(audio_classifier, "_model_service", lambda model_dir: FakeAudioModel())
+    anomaly_detector._detector.cache_clear()
+    monkeypatch.setattr(anomaly_detector, "_detector", lambda model_dir: FakeAnomalyDetector())
 
     try:
         _reset_test_database()
@@ -321,11 +332,14 @@ def test_upload_clip_uses_configured_audio_model(monkeypatch: pytest.MonkeyPatch
 
         assert response.status_code == 201
         body = response.json()
-        assert body["classifier_label"] == "gunshot"
-        assert body["classifier_confidence"] == 0.91
-        assert body["classifier_model_version"] == "threat-cnn-expanded-v6-bg-conservative"
-        assert body["generated_alert"]["priority"] == "high"
-        assert body["generated_alert"]["metadata"]["model_domain"] == "urban_cnn"
+        assert body["predicted_kind"] == "gunshot"
+        assert body["anomaly_score"] == 0.94
+        assert body["classifier_model_version"] == "anomaly-v1"
+        alert = body["generated_alert"]
+        assert alert["type"] == "anomaly"
+        assert alert["priority"] == "high"  # anomalous + chainsaw/gunshot kind
+        assert alert["metadata"]["likelihoods"]["gunshot"] == 0.61
+        assert alert["metadata"]["is_anomaly"] is True
     finally:
         get_settings.cache_clear()
 
@@ -350,7 +364,7 @@ def test_e2e_org_scoped_mvp_flow() -> None:
         alert_id = upload.json()["generated_alert"]["id"]
         assert upload.json()["generated_alert"]["region_id"] == region["id"]
 
-        alerts = client.get("/api/alerts", headers=_auth_header(token), params={"sensor_id": sensor["id"], "type": "audio"})
+        alerts = client.get("/api/alerts", headers=_auth_header(token), params={"sensor_id": sensor["id"], "type": "anomaly"})
         assert alerts.status_code == 200
         assert alerts.json()["items"][0]["id"] == alert_id
 
@@ -364,7 +378,7 @@ def test_e2e_org_scoped_mvp_flow() -> None:
 
         export = client.get("/api/alerts/export", headers=_auth_header(token), params={"format": "csv", "sensor_id": sensor["id"]})
         assert export.status_code == 200
-        assert "Audio classifier detected" in export.text
+        assert "Anomalous sound detected" in export.text
 
 
 def _org_id(client: TestClient, token: str) -> int:
@@ -740,7 +754,7 @@ def test_backend_manual_satellite_fusion_demo_flow_and_csv_metadata() -> None:
         region = _create_region(client, token, "Demo Region")
         sensor = _create_sensor(client, token, lat=-3.0, lon=-60.0, region_id=region["id"])
         acoustic = _upload_chainsaw_clip(client, token, sensor["id"])
-        assert acoustic["type"] == "audio"
+        assert acoustic["type"] == "anomaly"
 
         satellite = _create_satellite_change(client, token, region_id=region["id"], lat=-3.0005, lon=-60.0005)
         result = _run_fusion(client, token)

@@ -51,6 +51,8 @@ npm run dev
 - [Architecture](docs/architecture.md)
 - [API design](docs/api.md)
 - [Data model](docs/data-model.md)
+- [Open-set acoustic anomaly detection](docs/anomaly-detection.md)
+- [Field audio data requirements](docs/field-data-requirements.md)
 
 ## Organization-scoped MVP API flow
 
@@ -308,9 +310,9 @@ When browser automation or screenshot tooling is available, save evidence under 
 
 ### Known limitations
 
-- Satellite-change events are manual/stubbed for the MVP.
-- The audio classifier uses a trained artifact when `AUDIO_MODEL_PATH` is configured; otherwise it uses the deterministic filename fallback for lightweight demos.
-- Real Sentinel/NDVI processing is deferred.
+- The acoustic path is an **open-set anomaly detector** (catch-all), not a fixed classifier: it scores how far a sound deviates from normal forest background and reports a likelihood of what it seems to be, including `unknown`. It uses a fitted artifact when `ANOMALY_MODEL_PATH` is configured; otherwise a deterministic filename fallback drives lightweight demos. See [docs/anomaly-detection.md](docs/anomaly-detection.md).
+- Acoustic confidence is not yet fed into fusion scoring; it stays suppressed until a model passes the field gate (chainsaw recall > 0.70 and background FP < 0.10 across ≥ 3 sites).
+- Manual satellite-change events remain supported; CSV NDVI and live Sentinel-2 ingestion are also available (see the NDVI and Sentinel sections).
 
 ### Current validation status in this environment
 

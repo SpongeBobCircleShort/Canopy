@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import MapPanel from './MapPanel.jsx'
+import AnomalyLikelihood from './AnomalyLikelihood.jsx'
 
 // ── Trend chart helpers ────────────────────────────────────────────────────
 
@@ -257,6 +258,7 @@ export default function Overview({
                 Type
                 <select className="status-select" value={filterType} onChange={(e) => setFilterType(e.target.value)} style={selectStyle}>
                   <option value="all">All</option>
+                  <option value="anomaly">Anomaly</option>
                   <option value="audio">Audio</option>
                   <option value="satellite">Satellite</option>
                   <option value="fusion">Fusion</option>
@@ -296,7 +298,14 @@ export default function Overview({
               <p style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '0.78rem', color: '#999', lineHeight: 1.6 }}>
                 {alert.location.lat.toFixed(4)}, {alert.location.lon.toFixed(4)} · sensor {alert.sensor_id ?? 'none'}
               </p>
-              {alert.classifier_label && (
+              {alert.metadata?.anomaly_score !== undefined && (
+                <AnomalyLikelihood
+                  anomalyScore={alert.metadata.anomaly_score}
+                  isAnomaly={alert.metadata.is_anomaly}
+                  likelihoods={alert.metadata.likelihoods}
+                />
+              )}
+              {alert.metadata?.anomaly_score === undefined && alert.classifier_label && (
                 <p style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '0.78rem', color: '#999', lineHeight: 1.6 }}>
                   Classifier: {alert.classifier_label} ({formatPercent(alert.classifier_confidence)})
                   {alert.metadata?.model_domain ? ` · ${alert.metadata.model_domain}` : ''}

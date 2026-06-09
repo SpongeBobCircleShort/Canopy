@@ -173,6 +173,37 @@ export const demoSatelliteChanges = [
 ]
 
 export const demoAlerts = [
+  // === OPEN-SET ANOMALY DETECTOR ===
+  // Catch-all acoustic detector: flags deviation from normal forest background,
+  // then reports a likelihood of what the anomaly seems to be (incl. "unknown").
+  {
+    id: 101, org_id: 1, type: 'anomaly', status: 'open', priority: 'high',
+    description: 'Anomalous sound detected (94%) — likely chainsaw (71%) near ARA-01.',
+    location: { lat: -9.833, lon: -50.486 },
+    sensor_id: 1, region_id: 1,
+    classifier_label: 'chainsaw', classifier_confidence: 0.71,
+    classifier_model_version: 'anomaly-v1',
+    metadata: {
+      anomaly_score: 0.94, is_anomaly: true, predicted_kind: 'chainsaw',
+      likelihoods: { chainsaw: 0.71, vehicle: 0.12, unknown: 0.17 },
+      model_version: 'anomaly-v1',
+    },
+    created_at: daysAgo(1), updated_at: daysAgo(1),
+  },
+  {
+    id: 102, org_id: 1, type: 'anomaly', status: 'investigating', priority: 'medium',
+    description: 'Anomalous sound detected (88%) — unrecognized source (unknown 64%) near XIK-01.',
+    location: { lat: -11.214, lon: -53.121 },
+    sensor_id: 3, region_id: 2,
+    classifier_label: 'unknown', classifier_confidence: 0.64,
+    classifier_model_version: 'anomaly-v1',
+    metadata: {
+      anomaly_score: 0.88, is_anomaly: true, predicted_kind: 'unknown',
+      likelihoods: { unknown: 0.64, vehicle: 0.21, chainsaw: 0.15 },
+      model_version: 'anomaly-v1',
+    },
+    created_at: daysAgo(2), updated_at: daysAgo(1),
+  },
   // === ARAGUAIA THREAD ===
   {
     id: 1, org_id: 1, type: 'audio', status: 'resolved', priority: 'medium',
