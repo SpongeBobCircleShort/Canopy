@@ -32,6 +32,7 @@ import {
 } from './api.js'
 import ClipsReview from './components/ClipsReview.jsx'
 import DataIngestion from './components/DataIngestion.jsx'
+import ForestLossMap from './components/ForestLossMap.jsx'
 import Layout from './components/Layout.jsx'
 import Overview from './components/Overview.jsx'
 import Settings from './components/Settings.jsx'
@@ -667,6 +668,7 @@ export default function DashboardApp() {
             />
           }
         />
+        <Route path="forest-loss" element={<ForestLossMap />} />
         <Route
           path="ingestion"
           element={

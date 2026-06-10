@@ -487,6 +487,85 @@ button:not(.logout-btn):not(.sidebar-toggle):not(.sidebar-scrim) {
   width: 100%;
 }
 
+/* Forest Loss (India NDVI overlay) view */
+.forest-loss-view .page-subtitle {
+  color: var(--db-text-2, #999);
+  font-family: var(--font-body);
+  font-weight: 300;
+  font-size: 0.85rem;
+  max-width: 720px;
+  margin-top: 6px;
+}
+
+.forest-loss-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin: 14px 0;
+  font-size: 0.74rem;
+  color: var(--db-text-2, #aaa);
+}
+
+.forest-loss-legend .legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.forest-loss-legend .legend-swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  display: inline-block;
+}
+
+.forest-loss-map {
+  height: 560px;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.forest-loss-sites {
+  margin-top: 16px;
+  padding: 16px 18px;
+}
+
+.forest-loss-sites h2 {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #bbb;
+  margin: 0 0 10px;
+}
+
+.sites-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.sites-table th,
+.sites-table td {
+  text-align: left;
+  padding: 7px 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.sites-table th {
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #888;
+  font-weight: 500;
+}
+
+.sites-table td:nth-child(2),
+.sites-table th:nth-child(2),
+.sites-table td:nth-child(3),
+.sites-table th:nth-child(3) {
+  text-align: right;
+}
+
 .map-canvas .leaflet-control-attribution {
   background: rgba(13, 13, 13, 0.72);
   color: rgba(255, 255, 255, 0.58);

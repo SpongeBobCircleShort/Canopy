@@ -66,6 +66,8 @@ vi.mock('react-leaflet', () => ({
   MapContainer: ({ children }) => <div data-testid="map">{children}</div>,
   TileLayer: () => <div />,
   CircleMarker: ({ children }) => <div>{children}</div>,
+  Rectangle: ({ children }) => <div>{children}</div>,
+  GeoJSON: ({ children }) => <div>{children}</div>,
   Popup: ({ children }) => <div>{children}</div>,
   useMap: () => mockMap,
   useMapEvents: () => mockMap,
@@ -223,6 +225,19 @@ describe('App', () => {
     expect(await screen.findByText(/Anomaly score:/i)).toBeInTheDocument()
     expect(screen.getByText(/Likely source/i)).toBeInTheDocument()
     expect(screen.getByText('Chainsaw')).toBeInTheDocument()
+  })
+
+  it('shows the India forest-loss NDVI overlay view', async () => {
+    window.localStorage.setItem('canopy_token', 'demo-token')
+    renderAt('/app')
+
+    await screen.findByRole('heading', { name: /Global Overview/i })
+    fireEvent.click(screen.getByRole('link', { name: /Forest Loss/i }))
+
+    expect(await screen.findByRole('heading', { name: /Forest Loss — India/i })).toBeInTheDocument()
+    expect(screen.getByText(/NDVI cells/i)).toBeInTheDocument()
+    expect(screen.getByText(/Severe hotspots/i)).toBeInTheDocument()
+    expect(screen.getByText(/Landscape breakdown/i)).toBeInTheDocument()
   })
 
   it('renders dismissible toast notifications', () => {
