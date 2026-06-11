@@ -12,5 +12,7 @@ services:
         generateValue: true
       - key: AUDIO_STORAGE_PATH
         value: /tmp/canopy-audio
+      - key: CORS_ORIGINS
+        sync: false
       - key: PORT
         value: 8000

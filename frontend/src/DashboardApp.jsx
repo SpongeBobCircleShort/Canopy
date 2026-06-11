@@ -722,7 +722,7 @@ export default function DashboardApp() {
             />
           }
         />
-        <Route path="*" element={<Navigate to="/app" replace />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>
   )

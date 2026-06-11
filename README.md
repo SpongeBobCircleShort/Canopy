@@ -132,7 +132,7 @@ curl -L -H "Authorization: Bearer $TOKEN" \
 
 ## Organization invite flow
 
-Admins can invite members into an existing organization without creating a new organization for each user. Invite tokens are returned once at creation time for local development; the MVP stores raw invite tokens, so production deployments should replace this with hashed tokens and email delivery.
+Admins can invite members into an existing organization without creating a new organization for each user. Invite tokens are returned exactly once at creation time and stored as SHA-256 hashes at rest; copy the token from the creation response. Email delivery of invite links remains a planned follow-up.
 
 ```bash
 # Admin creates an invite for their organization

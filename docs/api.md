@@ -71,7 +71,7 @@ Region payloads accept `name`, optional `description`, and optional `boundary` a
 | Create/delete satellite changes | Yes | No |
 | Run fusion | Yes | No |
 
-Tenant isolation is enforced for regions, sensors, clips, alerts, satellite changes, fusion runs, status updates, CSV export, and organization invites. Invite tokens are stored raw for the MVP so local demos can copy them from the API response; production should store hashed invite tokens and send invite links by email. Team/project hierarchy and fine-grained field permissions remain deferred.
+Tenant isolation is enforced for regions, sensors, clips, alerts, satellite changes, fusion runs, status updates, CSV export, and organization invites. Invite tokens are stored as SHA-256 hashes at rest and returned exactly once in the creation response; production deployments should additionally send invite links by email. Team/project hierarchy and fine-grained field permissions remain deferred.
 
 ## Persistence
 

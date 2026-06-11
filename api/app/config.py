@@ -17,8 +17,17 @@ class Settings(BaseSettings):
     smtp_password: str | None = None
     smtp_from_address: str | None = None
     smtp_use_tls: bool = True
+    cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"  # comma-separated
+    log_level: str = "INFO"
+    rate_limit_enabled: bool = True
+    rate_limit_auth_per_minute: int = 10
+    rate_limit_global_per_minute: int = 120
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+    @property
+    def cors_origin_list(self) -> list[str]:
+        return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
 
 
 @lru_cache
