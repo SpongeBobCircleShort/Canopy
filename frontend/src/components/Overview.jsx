@@ -277,6 +277,7 @@ export default function Overview({
             </div>
           </div>
 
+          <div className="alert-feed" aria-label="Alert feed">
           {filteredAlerts.length === 0 && (
             <p style={{ color: '#666', fontSize: '0.82rem' }}>
               {alerts.length === 0 ? 'No alerts yet.' : 'No alerts match the active filters.'}
@@ -361,6 +362,7 @@ export default function Overview({
               </label>
             </article>
           ))}
+          </div>
         </aside>
       </div>
     </div>
