@@ -629,6 +629,27 @@ button:not(.logout-btn):not(.sidebar-toggle):not(.sidebar-scrim) {
   border-radius: 0;
 }
 
+.alert-feed {
+  max-height: 620px;
+  overflow-y: auto;
+  padding-right: 6px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--db-border-hover) transparent;
+}
+
+.alert-feed::-webkit-scrollbar {
+  width: 6px;
+}
+
+.alert-feed::-webkit-scrollbar-thumb {
+  background: var(--db-border-hover);
+  border-radius: 3px;
+}
+
+.alert-feed::-webkit-scrollbar-track {
+  background: transparent;
+}
+
 .sidebar h2,
 .control-card h2 {
   color: var(--db-text-1);
