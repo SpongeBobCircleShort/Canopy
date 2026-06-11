@@ -10,6 +10,7 @@ import pytest
 os.environ["DATABASE_URL"] = "sqlite:///./test-canopy.db"
 os.environ["JWT_SECRET"] = "test-secret"
 os.environ["AUDIO_STORAGE_PATH"] = "./test-audio"
+os.environ["RATE_LIMIT_ENABLED"] = "false"
 
 from fastapi.testclient import TestClient
 
@@ -98,7 +99,7 @@ def test_health_endpoint() -> None:
     with TestClient(app) as client:
         response = client.get("/api/health")
     assert response.status_code == 200
-    assert response.json() == {"status": "ok", "service": "canopy-api"}
+    assert response.json() == {"status": "ok", "service": "canopy-api", "db": "ok"}
 
 
 def test_signup_creates_organization_and_token_includes_org_id() -> None:
@@ -1542,3 +1543,51 @@ def test_notify_by_email_skips_when_smtp_not_configured() -> None:
                 json={"type": "audio", "location": {"lat": 1.0, "lon": 1.0}, "description": "Low alert", "priority": "low"},
             )
         assert len(called) == 0
+
+
+def test_invite_tokens_are_stored_hashed() -> None:
+    import hashlib
+    import sqlite3
+
+    _reset_test_database()
+    with TestClient(app) as client:
+        token = _signup(client, email="hash_admin@example.org", org_name="Hash Org")
+        org_id = _org_id(client, token)
+        invite = _create_invite(client, token, org_id, email="hashed@example.org")
+        raw_token = invite["token"]
+
+        conn = sqlite3.connect("test-canopy.db")
+        stored = conn.execute("SELECT token FROM organization_invites").fetchone()[0]
+        conn.close()
+        assert stored != raw_token
+        assert stored == hashlib.sha256(raw_token.encode()).hexdigest()
+
+        signup = client.post(
+            "/api/auth/signup",
+            json={"name": "Hashed", "email": "hashed@example.org", "password": "pw", "invite_token": raw_token},
+        )
+        assert signup.status_code == 201
+
+
+def test_rate_limit_returns_429_on_auth_endpoints_when_enabled() -> None:
+    _reset_test_database()
+    os.environ["RATE_LIMIT_ENABLED"] = "true"
+    os.environ["RATE_LIMIT_AUTH_PER_MINUTE"] = "3"
+    get_settings.cache_clear()
+    try:
+        with TestClient(app) as client:
+            responses = [
+                client.post("/api/auth/login", json={"email": "nobody@example.org", "password": "wrong"})
+                for _ in range(4)
+            ]
+            assert all(response.status_code != 429 for response in responses[:3])
+            assert responses[3].status_code == 429
+            assert responses[3].headers["Retry-After"] == "60"
+            assert responses[3].json() == {"detail": "Too many requests"}
+
+            health = client.get("/api/health")
+            assert health.status_code == 200
+    finally:
+        os.environ["RATE_LIMIT_ENABLED"] = "false"
+        os.environ.pop("RATE_LIMIT_AUTH_PER_MINUTE", None)
+        get_settings.cache_clear()

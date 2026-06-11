@@ -33,7 +33,7 @@ Users include `role` and nullable `organization_id`, though the MVP signup flow 
 
 ## Invite model
 
-Organization admins can create pending member invites. Invite acceptance through signup validates token status, expiration, and email match, then creates the user in the existing organization and marks the invite accepted. Raw invite token storage is an MVP limitation documented for replacement with hashed tokens before production use.
+Organization admins can create pending member invites. Invite acceptance through signup validates token status, expiration, and email match, then creates the user in the existing organization and marks the invite accepted. Invite tokens are stored as SHA-256 hashes; the raw token is only available in the creation response.
 
 ## NDVI ingestion batches
 

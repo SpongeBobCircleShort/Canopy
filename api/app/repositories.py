@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+import hashlib
 import json
 import math
 from typing import Any
@@ -71,7 +72,12 @@ def _organization_from_row(row: Any) -> Organization:
 
 
 
-def _invite_from_row(row: Any, *, include_token: bool = False) -> OrganizationInvite | OrganizationInviteCreated:
+def hash_invite_token(token: str) -> str:
+    # Tokens are 32 bytes of CSPRNG output, so a single unsalted digest is sufficient at rest.
+    return hashlib.sha256(token.encode()).hexdigest()
+
+
+def _invite_from_row(row: Any, *, raw_token: str | None = None) -> OrganizationInvite | OrganizationInviteCreated:
     base = {
         "id": _row_get(row, "id"),
         "org_id": _row_get(row, "org_id"),
@@ -83,11 +89,11 @@ def _invite_from_row(row: Any, *, include_token: bool = False) -> OrganizationIn
         "expires_at": _coerce_datetime(_row_get(row, "expires_at")) or datetime.now(timezone.utc),
         "accepted_at": _coerce_datetime(_row_get(row, "accepted_at")),
     }
-    if include_token:
+    if raw_token is not None:
         return OrganizationInviteCreated(
             **base,
-            token=_row_get(row, "token"),
-            accept_url=f"/signup?invite_token={_row_get(row, 'token')}",
+            token=raw_token,
+            accept_url=f"/signup?invite_token={raw_token}",
         )
     return OrganizationInvite(**base)
 
@@ -262,6 +268,7 @@ def create_invite(org_id: int, payload: OrganizationInviteCreate, *, invited_by_
     if payload.role != "member":
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Only member invites are supported")
     expires_at = datetime.now(timezone.utc) + timedelta(days=7)
+    token_hash = hash_invite_token(token)
     with connection() as conn:
         if is_sqlite():
             cursor = conn.execute(
@@ -269,7 +276,7 @@ def create_invite(org_id: int, payload: OrganizationInviteCreate, *, invited_by_
                 INSERT INTO organization_invites (org_id, email, role, token, status, invited_by_user_id, expires_at)
                 VALUES (?, ?, ?, ?, 'pending', ?, ?)
                 """,
-                (org_id, payload.email.lower(), payload.role, token, invited_by_user_id, expires_at.isoformat()),
+                (org_id, payload.email.lower(), payload.role, token_hash, invited_by_user_id, expires_at.isoformat()),
             )
             row = conn.execute("SELECT * FROM organization_invites WHERE id = ?", (cursor.lastrowid,)).fetchone()
         else:
@@ -279,9 +286,9 @@ def create_invite(org_id: int, payload: OrganizationInviteCreate, *, invited_by_
                 VALUES (%s, %s, %s, %s, 'pending', %s, %s)
                 RETURNING *
                 """,
-                (org_id, payload.email.lower(), payload.role, token, invited_by_user_id, expires_at),
+                (org_id, payload.email.lower(), payload.role, token_hash, invited_by_user_id, expires_at),
             ).fetchone()
-    return _invite_from_row(row, include_token=True)
+    return _invite_from_row(row, raw_token=token)
 
 
 def list_invites_for_org(org_id: int) -> list[OrganizationInvite]:
@@ -307,7 +314,9 @@ def get_invite_for_org(invite_id: int, org_id: int) -> OrganizationInvite | None
 def get_invite_by_token(token: str) -> OrganizationInvite | None:
     with connection() as conn:
         placeholder = "?" if is_sqlite() else "%s"
-        row = conn.execute(f"SELECT * FROM organization_invites WHERE token = {placeholder}", (token,)).fetchone()
+        row = conn.execute(
+            f"SELECT * FROM organization_invites WHERE token = {placeholder}", (hash_invite_token(token),)
+        ).fetchone()
     return _invite_from_row(row) if row else None
 
 

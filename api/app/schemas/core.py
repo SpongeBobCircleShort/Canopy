@@ -12,6 +12,7 @@ class Coordinates(BaseModel):
 class HealthResponse(BaseModel):
     status: str
     service: str
+    db: str | None = None
 
 
 class LoginRequest(BaseModel):
