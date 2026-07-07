@@ -1,0 +1,143 @@
+\section{Experiments}
+\label{sec:experiments}
+
+\paragraph{Data and protocol.} We use rainforest soundscapes from multiple RFCx
+sites with chainsaw and background labels. Every experiment is
+\emph{site-held-out}: all clips from a target site are reserved for test; the
+background density is fit on training-site background, prototypes on
+training-site positives, and the decision threshold is calibrated on a
+training-site background validation split to background FP $\le 0.10$. This
+mirrors the closed-set calibration exactly, so the two are directly comparable.
+We report the primary held-out site (tambopata) and $N$ additional
+leave-one-site-out folds.
+
+\paragraph{Metrics.} \emph{Flagged recall} (positives with $s \ge \tau$),
+\emph{attributed recall} (flagged \emph{and} argmax equals the true class),
+\emph{background FP}, and the area under the recall--vs--background-FP curve of
+the anomaly score alone (attribution-independent separability).
+
+\subsection{Closed-set classifiers do not travel}
+
+Table~\ref{tab:headline} restates the closed-set baseline: the forest-trained
+CNN reaches $0.976$ chainsaw recall at raw argmax on the held-out site, but at
+that operating point $50\%$ of background is flagged as a threat. Calibrated to a
+deployable background FP, recall collapses to $0.195$. The model contains a real
+chainsaw-like signal but no cross-site decision boundary. Re-using that same CNN
+as the open-set \emph{embedding} inherits the bias: its anomaly-score AUC is
+$0.319$ on the held-out site, below chance.
+
+\begin{table}[t]
+\centering
+\caption{Held-out-site (tambopata) chainsaw detection with the decision
+threshold calibrated to background FP $\le 0.10$ on a training-site validation
+split. Closed-set numbers from the platform's model status report; open-set rows
+are this work. Recall is flagged recall (attribution-independent); ``score AUC''
+is the area under the anomaly-score recall--vs--background-FP curve, i.e.\ how
+separable chainsaws are from background \emph{before} any labels.}
+\label{tab:headline}
+\begin{tabular}{lrrr}
+\toprule
+Method & Recall & Bg FP & Score AUC \\
+\midrule
+Closed-set CNN (raw argmax)       & 0.976 & 0.500 & --- \\
+Closed-set CNN (calibrated)       & 0.195 & 0.000 & --- \\
+Open-set, forest-CNN embedding    & 0.049 & 0.028 & 0.319 \\
+Open-set, AudioSet CNN14          & \textbf{0.317} & 0.056 & \textbf{0.713} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[t]
+\centering
+\caption{Leave-one-site-out folds, open-set with the frozen AudioSet CNN14
+embedding, threshold calibrated to background FP $\le 0.10$ on training-site
+validation. AUC rises above chance at every site (cf.\ the forest-CNN embedding,
+which is near chance everywhere), but the validation-calibrated threshold does
+not always hold the FP budget on an unseen site --- a cross-site
+\emph{calibration} gap distinct from the separability the embedding provides.
+pooks has only 10 held-out chainsaw clips.}
+\label{tab:folds}
+\begin{tabular}{lrrrr}
+\toprule
+Held-out site & $n_{\text{chain}}$ & Recall & Bg FP & Score AUC \\
+\midrule
+tambopata & 41  & 0.317 & 0.056 & 0.713 \\
+warsi     & 412 & 0.367 & 0.202 & 0.619 \\
+romania   & 30  & 0.267 & 0.133 & 0.559 \\
+pooks     & 10  & 0.000 & 0.000 & 0.546 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Embedding matters more than machinery}
+
+The open-set machinery is identical across embeddings, isolating the effect of
+$\phi$. The forest-CNN embedding inherits the same domain bias that sinks the
+closed-set model (score AUC $0.15$--$0.56$ across folds, near chance), whereas
+the frozen AudioSet CNN14 lifts score AUC above chance at every held-out site
+($0.55$--$0.71$; Table~\ref{tab:folds}). On the primary site it reaches $0.317$
+flagged recall at $0.056$ background FP --- exceeding the closed-set calibrated
+recall of $0.195$ while requiring \emph{zero} labeled positives for flagging.
+This supports our central design claim: with a sufficiently general frozen
+embedding, background-only density is a stronger \emph{deployable} flagging
+recipe than a supervised closed-set head.
+
+Two honest caveats temper this. First, absolute recall is modest ($0.27$--$0.37$
+where the FP budget is met): faint, distant chainsaws under an unseen forest's
+chorus remain hard. Second, the threshold calibrated on training-site background
+does not always hold the FP budget on an unseen site (warsi $0.20$, romania
+$0.13$; Table~\ref{tab:folds}), a cross-site \emph{calibration} gap distinct from
+the separability the embedding provides. Both point to the same remedy we cannot
+yet apply offline --- a small amount of destination-site background, which every
+deployment records on day one --- and motivate the field validation in
+Section~\ref{sec:deployment}.
+
+\subsection{Attribution lights up with a handful of labels}
+
+Figure~\ref{fig:kcurve} plots attributed recall against the number of verified
+positives per class $k \in \{0,1,5,10,25\}$ (mean $\pm$ std over seeds), with
+flagging held fixed. At $k=0$ every anomaly is honestly unknown by construction
+($0.000$ attributed recall); on tambopata attribution rises to $0.11$ at $k=5$
+and $0.18$ at $k=25$, tracking flagged recall as prototypes sharpen. Flagging is
+identical across all $k$ by construction --- the confirmations only move mass
+from \emph{unknown} onto the named class, exactly the day-one-useful,
+self-improving behavior a ranger-in-the-loop deployment needs.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.8\columnwidth]{figures/kcurve.pdf}
+\caption{Attributed recall vs.\ verified positives per class (tambopata
+held-out, AudioSet embedding; mean $\pm$ std over seeds). Flagging is
+independent of $k$; only attribution depends on it.}
+\label{fig:kcurve}
+\end{figure}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.8\columnwidth]{figures/roc.pdf}
+\caption{Anomaly-score flagged-recall vs.\ background false-positive rate
+(tambopata held-out, AudioSet embedding). The score separates chainsaws from
+background with no labeled positives; the dashed line is chance.}
+\label{fig:roc}
+\end{figure}
+
+\subsection{Honest unknowns}
+
+To test abstention we remove chainsaw's prototype entirely and score the
+held-out site's chainsaw clips. A well-behaved open-set detector should still
+\emph{flag} these clips (they are acoustically unusual) while assigning their
+likelihood mass to \emph{unknown} rather than misattributing it. This is exactly
+what we observe: on every site with held-out chainsaws, flagging is unchanged
+and $100\%$ of flagged clips are predicted \emph{unknown} with mean unknown mass
+$1.0$ --- the detector never invents a wrong label for a class it was never
+shown.
+
+\subsection{Faintness: SNR sensitivity}
+
+Real threats are often distant and faint. We build a controlled evaluation by
+mixing positive events into background at fixed signal-to-noise ratios and
+measuring flagged recall per SNR, giving an operating characteristic in the
+regime that matters for early detection. The harness is validated on RFCx
+background and runs unchanged against destination-site field background on
+arrival.
+% PLACEHOLDER: SNR sweep numbers, pending the field-background delivery.

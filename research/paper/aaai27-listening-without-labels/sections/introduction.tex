@@ -1,0 +1,62 @@
+\section{Introduction}
+
+Illegal logging is a leading driver of tropical forest loss, and its most
+reliable early signature is sound: chainsaws, vehicles, and gunshots carry for
+hundreds of meters under canopy that hides them from satellites for days to
+weeks. Low-cost acoustic sensors are therefore among the most widely deployed
+conservation technologies. The dominant recipe is a closed-set
+classifier --- train a CNN on labeled clips of $k$ threat classes, deploy, and
+alert when a class probability crosses a threshold.
+
+This recipe embeds two assumptions that fail in conservation deployments.
+First, it assumes labeled positives from the deployment domain exist. They
+rarely do: a new reserve has no verified recordings of chainsaws \emph{under its
+own microphones, weather, and species chorus}, and public datasets are dominated
+by close-range, high-SNR urban recordings. Second, it assumes the threat
+taxonomy is known in advance, so any sound outside the $k$ classes is silently
+mapped onto them or suppressed.
+
+We first quantify how badly the closed-set recipe travels. A CNN chainsaw
+detector trained on rainforest soundscapes from multiple sites, with
+leakage-checked splits and validation-calibrated thresholds, reaches only
+$0.195$ recall on a fully held-out site at a deployable background
+false-positive rate --- despite $0.976$ raw-argmax recall that would flag half
+of all background as threats (Section~\ref{sec:experiments}). The model learns
+a real chainsaw signal but not a decision boundary that transfers across sites. Our open-set detector, over a
+frozen general-purpose audio embedding, recovers a deployable operating point on
+the same held-out site --- $0.317$ flagged recall at $0.056$ background FP,
+exceeding the closed-set calibrated recall while using no labeled positives to
+decide what is anomalous.
+
+We argue the deployable formulation is open-set and background-first:
+\begin{enumerate}
+\item \textbf{Flag} a clip by how far it deviates from \emph{this forest's}
+      normal soundscape --- a density fit on unlabeled background audio alone,
+      which every deployment can record on day one;
+\item \textbf{Attribute} flagged clips against per-class prototypes built from
+      whatever ranger-verified positives exist so far --- zero at launch;
+\item \textbf{Abstain honestly}: when no prototype matches, report
+      \emph{unknown} rather than forcing a known label.
+\end{enumerate}
+The decision threshold is calibrated to an explicit background false-positive
+budget, because ranger attention --- not accuracy --- is the scarce resource.
+
+Our contributions:
+\begin{itemize}
+\item A negative result with an audited protocol: closed-set acoustic threat
+      classifiers do not learn deployable cross-site decision boundaries, even
+      with in-domain multi-site training data.
+\item A background-only open-set detector --- shrunk-covariance Mahalanobis
+      density over a frozen pretrained embedding, quantile-mapped scores, an
+      FP-budget threshold, and prototype attribution with reserved unknown
+      mass --- that ships with zero labeled threats and improves monotonically
+      as verified positives arrive, without retraining.
+\item A site-held-out evaluation across RFCx rainforest sites measuring
+      flagging, attribution, the attribution-vs-verified-positives curve, and
+      honest-unknown behavior under class holdout. The embedding, not the
+      detector head, is what governs cross-site deployability: a frozen AudioSet
+      encoder clears chance-level separability at every site where the
+      forest-CNN embedding does not.
+\item An open-source deployment (Canopy) in which the ranger review loop
+      closes the label flywheel: confirmed alerts become prototype updates.
+\end{itemize}

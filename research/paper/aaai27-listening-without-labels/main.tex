@@ -1,0 +1,68 @@
+% AAAI-27 submission — AI for Social Impact track
+% Requires the AAAI-27 author kit (aaai2027.sty, aaai2027.bst) — see README.md.
+\documentclass[letterpaper]{article}
+\usepackage[submission]{aaai2027}  % from the AAAI-27 author kit
+\usepackage{times}
+\usepackage{helvet}
+\usepackage{courier}
+\usepackage[hyphens]{url}
+\usepackage{graphicx}
+\urlstyle{rm}
+\def\UrlFont{\rm}
+\usepackage{caption}
+\frenchspacing
+\setlength{\pdfpagewidth}{8.5in}
+\setlength{\pdfpageheight}{11in}
+\usepackage{amsmath}
+\usepackage{booktabs}
+
+\pdfinfo{
+/TemplateVersion (2027.1)
+}
+
+\title{Listening Without Labels: Open-Set Acoustic Threat Detection\\
+for Forest Conservation from Background Audio Alone}
+\author{Anonymous submission}
+\affiliations{Anonymous submission}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+Acoustic monitoring is one of the cheapest scalable defenses against illegal
+logging, but deployed detectors are typically closed-set classifiers trained on
+public or urban recordings, and we show they do not survive contact with a new
+forest: a CNN chainsaw detector with strong in-domain validation collapses to
+0.195 recall on a fully held-out site once calibrated to a deployable
+false-positive rate. We argue the deployment-shaped constraint for conservation
+acoustics is not ``classify $k$ known threats,'' but ``flag what is unusual for
+\emph{this} forest, attribute it when evidence exists, and say \emph{unknown}
+otherwise --- starting from zero labeled threats.'' We present an open-set
+detector that fits a background density on unlabeled forest-at-rest audio over a
+frozen pretrained embedding, calibrates its decision threshold to a background
+false-positive gate, and attributes flagged clips with per-class prototypes
+built incrementally from ranger-verified positives, reserving honest
+\emph{unknown} mass for sounds matching no prototype. On a held-out rainforest
+site, a frozen AudioSet embedding lifts chainsaw-vs-background separability from
+chance (the forest-CNN embedding's AUC $0.32$) to AUC $0.71$, and the detector
+flags $0.317$ of chainsaws at a $0.056$ background false-positive rate ---
+exceeding the calibrated closed-set recall of $0.195$ while using no labeled
+positives for flagging. When a class's prototype is withheld, every flagged clip
+is honestly labeled \emph{unknown}.
+The detector is deployed in Canopy, an open-source forest monitoring platform,
+where ranger confirmations close the loop: each verified alert becomes a
+prototype update, with no retraining. We release code, fitted artifacts, and
+the full evaluation protocol.
+\end{abstract}
+
+\input{sections/introduction}
+\input{sections/related}
+\input{sections/method}
+\input{sections/experiments}
+\input{sections/deployment}
+\input{sections/conclusion}
+
+\bibliography{references}
+
+\end{document}

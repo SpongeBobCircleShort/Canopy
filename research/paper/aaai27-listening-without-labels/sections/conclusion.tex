@@ -1,0 +1,15 @@
+\section{Conclusion}
+
+Closed-set acoustic threat classifiers do not survive a change of forest: strong
+in-domain validation hides a cross-site collapse once a deployable
+false-positive budget is enforced. We reframed the task as background-first and
+open-set --- flag deviation from a site's own soundscape, attribute with
+incrementally built prototypes, and abstain honestly --- and showed the
+resulting detector ships with zero labeled threats and improves as rangers
+confirm alerts, without retraining. The choice of frozen embedding, not the
+detector head, governs deployability. Beyond forests, the same recipe fits any
+monitoring setting where normal is easy to record, anomalies are rare and
+open-ended, and expert attention is the binding constraint. Limitations include
+reliance on the quality of the frozen embedding and on background that
+faithfully represents a site at rest; field validation on in-situ positives is
+ongoing.

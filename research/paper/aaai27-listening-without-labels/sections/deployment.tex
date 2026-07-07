@@ -1,0 +1,34 @@
+\section{Deployment: The Ranger-in-the-Loop Flywheel}
+\label{sec:deployment}
+
+The detector ships inside Canopy, an open-source forest-monitoring platform.
+A field sensor uploads a clip; the API scores it with the fitted detector and,
+when $s(x)\ge\tau$, creates an anomaly alert carrying the anomaly score, the
+predicted kind, and the full likelihood vector including \emph{unknown}. The
+dashboard renders the ranked breakdown (e.g.\ ``likely chainsaw 71\% $\cdot$
+vehicle 12\% $\cdot$ unknown 17\%'') so a ranger sees not just \emph{that}
+something is unusual but the current best guess and its uncertainty.
+
+\paragraph{Closing the loop without retraining.} Ranger confirmations in the
+clip-review UI are exported as a positives manifest and folded back into the
+prototype set. Because attribution is closed-form over a frozen embedding, this
+is a seconds-long refit, not a training run: the very labels the deployment
+generates are the labels that light up its classes. This is the operational
+realization of the $k$-curve in Section~\ref{sec:experiments} --- each
+confirmation moves the system rightward along it.
+
+\paragraph{Why background-first fits social-impact constraints.} Under-resourced
+conservation teams cannot commission labeled threat corpora for every reserve,
+but every site can record its own background on day one. Anchoring the detector
+to background makes the expensive resource (labeled positives) optional and
+incremental, and makes the tunable knob a single interpretable
+quantity --- the background false-positive budget that bounds wasted ranger
+patrols. The honest \emph{unknown} option means a novel threat (a new machine, a
+new vehicle) is surfaced rather than silently misfiled, which is the failure
+mode a fixed taxonomy cannot avoid.
+
+\paragraph{Reproducibility.} The detector math is a small, dependency-light
+module unit-tested without the audio stack; the fit and evaluation are single
+commands over public manifests; and fitted artifacts, the evaluation protocol,
+and the platform are released open-source. We complete the AAAI reproducibility
+checklist and document dataset licenses for redistribution.

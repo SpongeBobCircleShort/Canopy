@@ -1,0 +1,42 @@
+\section{Related Work}
+\label{sec:related}
+
+\paragraph{Acoustic monitoring for conservation.} Passive acoustic monitoring is
+established for biodiversity and increasingly for threat detection (chainsaws,
+gunshots, vehicles), with deployments such as Rainforest Connection converting
+recordings into ranger alerts. These systems predominantly use closed-set
+supervised classifiers and report in-domain metrics; cross-site generalization
+under a fixed false-positive budget is rarely measured. Our negative result
+quantifies that gap, and our detector targets the label-scarce, open-taxonomy
+regime deployments actually face.
+% CITE: Rainforest Connection / RFCx; bioacoustic threat-detection surveys.
+
+\paragraph{Few-shot bioacoustic event detection.} The DCASE few-shot bioacoustic
+task formalizes detecting novel sound events from a handful of labeled
+examples. Our prototype stage is in this spirit --- a class is defined by a few
+verified positives --- but we couple it to a background-only anomaly gate and an
+explicit unknown option, so the system flags before any labels exist and
+abstains when no prototype matches.
+% CITE: DCASE Task 5 few-shot bioacoustic event detection.
+
+\paragraph{Open-set recognition and OOD detection.} Open-set recognition asks a
+classifier to reject inputs outside its training classes; a large OOD-detection
+literature scores novelty, including Mahalanobis distance in a deep feature
+space. We adopt the Mahalanobis-in-embedding scoring but invert the usual
+framing: the ``in-distribution'' density is \emph{normal forest background}, not
+the labeled classes, so the detector is trained without any positives and known
+classes enter only as post-hoc prototypes.
+% CITE: Mahalanobis OOD detection; open-set recognition surveys.
+
+\paragraph{Prototypical and metric learning.} Class-mean prototypes with cosine
+similarity are standard in few-shot metric learning. Our contribution is not the
+prototype but its role in a deployable pipeline: prototypes are optional,
+incrementally updatable from human confirmations, and gated behind a
+background-calibrated anomaly threshold with reserved unknown mass.
+% CITE: Prototypical Networks; deep metric learning.
+
+\paragraph{Transfer of pretrained audio embeddings.} Large audio taggers (e.g.\
+AudioSet-pretrained CNNs) yield general-purpose embeddings that transfer across
+audio tasks. We use one as a frozen $\phi$ and show that the choice of embedding,
+not the detector head, governs cross-site deployability for forest threats.
+% CITE: PANNs / CNN14; YAMNet; AudioSet.

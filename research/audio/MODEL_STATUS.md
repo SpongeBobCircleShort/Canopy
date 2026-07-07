@@ -1,5 +1,69 @@
 # Canopy Audio Model Status
 
+## 2026-07-07: Site-held-out open-set evaluation harness + embedding finding
+
+Built the paper-grade evaluation for the open-set detector (AAAI-27 submission,
+`research/paper/aaai27-listening-without-labels/`). New tooling, all numpy-only
+math unit-tested in CI (`tests/test_eval_anomaly.py`):
+
+- `eval_anomaly.py` — site-held-out protocol matching the closed-set
+  calibration exactly (fit background on train sites, prototypes on train-site
+  positives, calibrate threshold to val-site background FP ≤ 0.10, evaluate the
+  held-out site). Includes the prototype-count (`k`) curve, honest-unknown
+  class-holdout, and anomaly-score recall-vs-FP AUC.
+- `eval_anomaly_holdout.py` — CLI driver with a pluggable, on-disk-cached
+  embedder: the forest CNN or `--embedder-model panns` (frozen AudioSet CNN14).
+- `inject_snr.py` — SNR-injection eval-set builder (debugged on RFCx background;
+  one command against field background on delivery day).
+- `plot_report.py` — renders the k-curve and ROC figures from a report JSON.
+
+**Finding — the forest-CNN embedding does not transfer across sites.** Running
+the open-set detector on leave-one-site-out folds at background FP ≤ 0.10:
+
+| Held-out site | Embedder | Flagged recall | Background FP | Score AUC |
+| --- | --- | ---: | ---: | ---: |
+| tambopata | forest CNN (kaggle_aug_v1) | 0.049 | 0.028 | 0.319 |
+| tambopata | forest CNN (v1b holdout) | 0.146 | 0.083 | 0.507 |
+| warsi | forest CNN (kaggle_aug_v1) | 0.250 | 0.268 | 0.481 |
+| romania | forest CNN (kaggle_aug_v1) | 0.167 | 0.067 | 0.564 |
+| pooks | forest CNN (kaggle_aug_v1) | 0.000 | 0.000 | 0.146 |
+
+The anomaly-score AUC hovers around chance (0.5), i.e. the CNN's pre-classifier
+feature does not place cross-site chainsaws far from background. This is the same
+domain bias that sinks the closed-set head, now isolated to the *embedding*.
+
+**Frozen AudioSet CNN14 (PANNs) clears the bar on the primary site — GO with
+caveats.** Swapping only the embedding (`--embedder-model panns`), same open-set
+math:
+
+| Held-out site | n_chain | Flagged recall | Background FP | Score AUC |
+| --- | ---: | ---: | ---: | ---: |
+| tambopata | 41 | 0.317 | 0.056 | **0.713** |
+| warsi | 412 | 0.367 | 0.202 | 0.619 |
+| romania | 30 | 0.267 | 0.133 | 0.559 |
+| pooks | 10 | 0.000 | 0.000 | 0.546 |
+
+Reads:
+- **Embedding governs cross-site separability.** PANNs lifts score AUC above
+  chance at every site (0.55–0.71) where the forest CNN was at chance. On
+  tambopata it meets the FP≤0.10 gate *and* beats the closed-set calibrated
+  recall (0.317 vs 0.195) with **zero labels used for flagging**. This is the
+  paper's headline.
+- **Honest-unknown is clean.** With chainsaw's prototype withheld, 100% of
+  flagged chainsaws are predicted `unknown` (mean unknown mass 1.0) on every
+  site with chainsaw test clips.
+- **k-curve works.** Attribution ramps with verified positives (tambopata
+  0→0.02→0.11→0.17→0.18 for k=0,1,5,10,25) while flagging is untouched.
+- **Open caveat — threshold transfer.** The FP threshold calibrated on
+  training-site val background overshoots 0.10 on warsi (0.20) and romania
+  (0.13). Separability transfers; the *operating point* does not fully. The fix
+  is a little destination-site background (available day one of any deployment)
+  — same remedy the field delivery provides. pooks (10 chainsaw clips) is too
+  small to read.
+
+Reports: `research/audio/reports/anomaly_holdout_{site}_panns.json`. Paper:
+`research/paper/aaai27-listening-without-labels/` (Table 1 + folds table filled).
+
 ## 2026-06-10: Pivot to open-set anomaly detection
 
 Following the forest_v1b finding below (the closed-set classifier does not learn
