@@ -557,6 +557,12 @@ button:not(.logout-btn):not(.sidebar-toggle):not(.sidebar-scrim) {
   display: inline-block;
 }
 
+.forest-loss-legend--transitions {
+  margin-top: -4px;
+  font-size: 0.7rem;
+  color: var(--db-text-3, #888);
+}
+
 .forest-loss-map {
   height: 560px;
   border-radius: 10px;

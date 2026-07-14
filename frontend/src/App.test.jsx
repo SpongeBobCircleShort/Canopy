@@ -242,7 +242,7 @@ describe('App', () => {
     fireEvent.click(screen.getByRole('link', { name: /Forest Loss/i }))
 
     expect(await screen.findByRole('heading', { name: /Forest Loss — India/i })).toBeInTheDocument()
-    expect(screen.getByText(/NDVI cells/i)).toBeInTheDocument()
+    expect(screen.getByText(/Change cells/i)).toBeInTheDocument()
     expect(screen.getByText(/Severe hotspots/i)).toBeInTheDocument()
     expect(screen.getByText(/Landscape breakdown/i)).toBeInTheDocument()
   })

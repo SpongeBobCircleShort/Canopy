@@ -1591,3 +1591,26 @@ def test_rate_limit_returns_429_on_auth_endpoints_when_enabled() -> None:
         os.environ["RATE_LIMIT_ENABLED"] = "false"
         os.environ.pop("RATE_LIMIT_AUTH_PER_MINUTE", None)
         get_settings.cache_clear()
+
+
+def test_ingest_embedding_stub_path_without_ee() -> None:
+    """Without an Earth Engine fetch backend the endpoint returns a graceful
+    stub result (HTTP 202, zero changes) instead of crashing."""
+    _reset_test_database()
+    with TestClient(app) as client:
+        token = _signup(client, email="ee_admin@example.org", org_name="EE Org")
+        response = client.post(
+            "/api/satellite-changes/ingest-embedding",
+            headers=_auth_header(token),
+            json={
+                "bbox": [80.0, 22.0, 80.3, 22.3],
+                "baseline_year": 2019,
+                "recent_year": 2023,
+                "grid_resolution": 4,
+            },
+        )
+    assert response.status_code == 202
+    body = response.json()
+    assert body["backend"] == "stub"
+    assert body["created_change_count"] == 0
+    assert body["grid_cells_evaluated"] == 16

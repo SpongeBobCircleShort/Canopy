@@ -1,0 +1,4 @@
+# Earth Engine batch data-acquisition layer for the foundation-model satellite path.
+# Used only by research/satellite scripts (spike.py, nationwide ingestion) — never
+# imported by the FastAPI request path.
+earthengine-api>=1.4,<2
