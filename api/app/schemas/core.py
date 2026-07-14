@@ -182,6 +182,8 @@ class SatelliteChangeSource(str, Enum):
     landsat_stub = "landsat_stub"
     ndvi_stub = "ndvi_stub"
     csv_ndvi = "csv_ndvi"
+    satellite_embedding = "satellite_embedding"  # Google AlphaEarth annual embeddings
+    dynamic_world = "dynamic_world"  # Dynamic World near-real-time land cover
 
 
 class SatelliteChangeType(str, Enum):
@@ -286,6 +288,51 @@ class SentinelIngestResponse(BaseModel):
     observation_scene_count: int
     grid_cells_evaluated: int
     skipped_count: int
+
+
+class EmbeddingIngestRequest(BaseModel):
+    """Foundation-model satellite change detection over a bbox grid.
+
+    Compares Google AlphaEarth annual embeddings between two years
+    (semantic change = 1 - cosine similarity) and corroborates with
+    Dynamic World land-cover transitions. See
+    ``api/app/services/embedding_ingestion.py``.
+    """
+    region_id: int | None = None
+    bbox: list[float] = Field(
+        ...,
+        min_length=4,
+        max_length=4,
+        description="[min_lon, min_lat, max_lon, max_lat] in WGS-84",
+    )
+    baseline_year: int = Field(..., ge=2017, le=2100, description="AlphaEarth annual embedding year for the baseline.")
+    recent_year: int = Field(..., ge=2017, le=2100, description="AlphaEarth annual embedding year for the recent state.")
+    dw_baseline_start: datetime | None = None
+    dw_baseline_end: datetime | None = None
+    dw_recent_start: datetime | None = None
+    dw_recent_end: datetime | None = None
+    grid_resolution: int = Field(default=10, ge=1, le=100, description="Grid cells along each axis.")
+    change_threshold: float = Field(
+        default=0.10, gt=0.0, le=2.0,
+        description="Minimum common-mode-removed embedding change (1 - cosine) to flag a cell.",
+    )
+    change_scale: float = Field(
+        default=0.50, gt=0.0, le=2.0,
+        description="Embedding-change residual that maps to severity 1.0 (mirrors the NDVI 0.5 scale).",
+    )
+    forest_baseline_min: float = Field(
+        default=0.5, ge=0.0, le=1.0,
+        description="Only flag cells whose baseline Dynamic World trees probability was at least this.",
+    )
+
+
+class EmbeddingIngestResponse(BaseModel):
+    created_change_count: int
+    created_satellite_change_ids: list[int]
+    cells_fetched: int
+    grid_cells_evaluated: int
+    skipped_count: int
+    backend: str  # "earth_engine" | "stub" — which fetch backend served the run
 
 
 class FusionRunRequest(BaseModel):

@@ -19,6 +19,11 @@ class Settings(BaseSettings):
     smtp_use_tls: bool = True
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"  # comma-separated
     log_level: str = "INFO"
+    # Earth Engine (foundation-model satellite path). Optional: when unset, the
+    # embedding ingestion endpoint returns a graceful empty/stub result. Real
+    # nationwide runs use these via the research/satellite batch script.
+    ee_service_account_json: str | None = None  # path to or inline service-account JSON
+    ee_project: str | None = None
     rate_limit_enabled: bool = True
     rate_limit_auth_per_minute: int = 10
     rate_limit_global_per_minute: int = 120

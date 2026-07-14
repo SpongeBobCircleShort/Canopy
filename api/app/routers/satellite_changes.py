@@ -1,8 +1,16 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.repositories import create_satellite_change, delete_satellite_change, get_satellite_change, list_satellite_changes
-from app.schemas import SatelliteChangeCreate, SatelliteChangeResponse, SentinelIngestRequest, SentinelIngestResponse
+from app.schemas import (
+    EmbeddingIngestRequest,
+    EmbeddingIngestResponse,
+    SatelliteChangeCreate,
+    SatelliteChangeResponse,
+    SentinelIngestRequest,
+    SentinelIngestResponse,
+)
 from app.security import get_current_user, org_id_for_user, require_admin
+from app.services.embedding_ingestion import run_embedding_ingest
 from app.services.sentinel_ingestion import run_sentinel_ingest
 
 router = APIRouter()
@@ -31,6 +39,27 @@ def ingest_sentinel(
     satellite change events for cells that exceed the loss threshold.
     """
     return run_sentinel_ingest(
+        payload,
+        org_id=org_id_for_user(current_user),
+        create_satellite_change_fn=create_satellite_change,
+    )
+
+
+@router.post("/ingest-embedding", response_model=EmbeddingIngestResponse, status_code=status.HTTP_202_ACCEPTED)
+def ingest_embedding(
+    payload: EmbeddingIngestRequest,
+    current_user: dict = Depends(require_admin),
+) -> EmbeddingIngestResponse:
+    """
+    Trigger a foundation-model (AlphaEarth + Dynamic World) satellite change
+    detection run for the authenticated organisation.
+
+    Earth Engine is a batch data-acquisition layer: without a configured fetch
+    backend this returns a graceful empty "stub" result. Real nationwide
+    detections are produced by the research/satellite batch script, which
+    injects the Earth Engine fetch into ``run_embedding_ingest``.
+    """
+    return run_embedding_ingest(
         payload,
         org_id=org_id_for_user(current_user),
         create_satellite_change_fn=create_satellite_change,

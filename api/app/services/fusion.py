@@ -40,6 +40,8 @@ RECURRENCE_WEIGHT = 0.10
 
 # Source quality multipliers for satellite confidence
 _SOURCE_QUALITY: dict[str, float] = {
+    SatelliteChangeSource.satellite_embedding.value: 1.15,  # AlphaEarth: radar+optical fusion, most robust
+    SatelliteChangeSource.dynamic_world.value: 1.12,
     SatelliteChangeSource.sentinel_2.value: 1.10,
     SatelliteChangeSource.manual.value: 1.00,
     SatelliteChangeSource.csv_ndvi.value: 0.95,
