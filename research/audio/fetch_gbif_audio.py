@@ -28,10 +28,16 @@ import json
 import time
 import urllib.parse
 import urllib.request
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
 from research.audio.manifest import ManifestRow, write_manifest
+
+# Formats the training loader (soundfile) cannot decode; we transcode these to
+# WAV on download so no clip is wasted. librosa uses the OS decoder (CoreAudio on
+# macOS), so no ffmpeg install is required.
+_TRANSCODE_SUFFIXES = {".m4a", ".aac", ".mp4"}
 
 _API_BASE = "https://api.gbif.org/v1/occurrence/search"
 _HTTP_TIMEOUT = 30
@@ -151,6 +157,28 @@ def fetch_page(
         return json.loads(response.read())
 
 
+def transcode_to_wav_if_needed(path: Path) -> Path:
+    """Transcode m4a/aac to WAV (via librosa/OS decoder) so the loader can read it.
+
+    Returns the WAV path on success, or the original path if transcoding is not
+    needed or fails (those clips are then skipped downstream rather than crashing).
+    """
+    if path.suffix.lower() not in _TRANSCODE_SUFFIXES:
+        return path
+    try:
+        import librosa
+        import soundfile as sf
+
+        waveform, sample_rate = librosa.load(str(path), sr=None, mono=True)
+        wav_path = path.with_suffix(".wav")
+        sf.write(str(wav_path), waveform, sample_rate)
+        path.unlink(missing_ok=True)
+        return wav_path
+    except Exception as exc:  # noqa: BLE001
+        print(f"  transcode failed for {path.name}: {exc}")
+        return path
+
+
 def download_clip(url: str, dest: Path) -> bool:
     dest.parent.mkdir(parents=True, exist_ok=True)
     if dest.exists() and dest.stat().st_size > 0:
@@ -197,8 +225,10 @@ def run(
 
     kept: list[ManifestRow] = []
     for row, url in pairs:
-        if download_clip(url, out_dir / row.path):
-            kept.append(row)
+        dest = out_dir / row.path
+        if download_clip(url, dest):
+            final = transcode_to_wav_if_needed(dest)
+            kept.append(row if final.name == row.path else replace(row, path=final.name))
 
     manifest_path = out_dir / "manifest.csv"
     if kept:

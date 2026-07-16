@@ -19,7 +19,12 @@ class AnomalyDetector:
         self.model_dir = Path(model_dir)
         self.artifact = anomaly.load_artifact(self.model_dir)
         self.model_version = self.artifact.get("model_version", anomaly.ARTIFACT_VERSION)
-        embedder_dir = self.artifact.get("embedder", {}).get("model_dir")
+        embedder_cfg = self.artifact.get("embedder", {})
+        if embedder_cfg.get("architecture") == "birdnet":
+            from research.audio.birdnet_embedder import BirdNETEmbedder
+            self._embedder = BirdNETEmbedder()
+            return
+        embedder_dir = embedder_cfg.get("model_dir")
         if not embedder_dir:
             raise ValueError(
                 f"Anomaly artifact at {self.model_dir} has no embedder.model_dir; "

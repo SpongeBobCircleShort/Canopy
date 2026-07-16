@@ -39,23 +39,42 @@ def _embed_manifest(embedder: AudioInferenceService, manifest_path: Path) -> tup
     rows = read_manifest(manifest_path)
     embeddings: list[np.ndarray] = []
     labels: list[str] = []
+    skipped = 0
     for row in rows:
-        embeddings.append(embedder.embed(_resolve_path(manifest_path, row["path"])))
+        try:
+            embedding = embedder.embed(_resolve_path(manifest_path, row["path"]))
+        except Exception as exc:  # noqa: BLE001 - short/corrupt clips should not abort the fit
+            skipped += 1
+            print(f"  skip (embed failed): {row['path']}: {exc}")
+            continue
+        embeddings.append(embedding)
         labels.append(canonical_label(row["label"]))
+    if skipped:
+        print(f"  {skipped} clips skipped, {len(embeddings)} embedded from {manifest_path.name}")
     return np.array(embeddings, dtype=np.float64), labels
 
 
+def _build_embedder(embedder_type: str, embedder_model: Path | None):
+    if embedder_type == "birdnet":
+        from research.audio.birdnet_embedder import BirdNETEmbedder
+        return BirdNETEmbedder()
+    if embedder_model is None:
+        raise ValueError("--embedder-model is required for the cnn embedder")
+    return AudioInferenceService(embedder_model)
+
+
 def fit(
-    embedder_model: Path,
+    embedder_model: Path | None,
     background_manifest: Path,
     out_dir: Path,
     *,
+    embedder_type: str = "cnn",
     positives_manifest: Path | None = None,
     fp_target: float = 0.01,
     sim_threshold: float = 0.5,
     temperature: float = 0.1,
 ) -> Path:
-    embedder = AudioInferenceService(embedder_model)
+    embedder = _build_embedder(embedder_type, embedder_model)
 
     background_embeddings, _ = _embed_manifest(embedder, background_manifest)
     background = anomaly.fit_background(background_embeddings, fp_target=fp_target)
@@ -78,7 +97,7 @@ def fit(
         background,
         prototypes,
         embedder={
-            "model_dir": str(embedder_model),
+            "model_dir": str(embedder_model) if embedder_model else "",
             "model_version": embedder.checkpoint.get("artifact", {}).get("model_version"),
             "architecture": str(embedder.model_config.get("architecture", "cnn")),
             "embedding_dim": int(dim),
@@ -97,7 +116,8 @@ def fit(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Fit a Canopy open-set acoustic anomaly detector.")
-    parser.add_argument("--embedder-model", type=Path, required=True, help="CNN model artifact dir used to embed clips")
+    parser.add_argument("--embedder-model", type=Path, default=None, help="CNN model artifact dir (required for --embedder-type cnn)")
+    parser.add_argument("--embedder-type", choices=["cnn", "birdnet"], default="cnn", help="Embedding backbone")
     parser.add_argument("--background-manifest", type=Path, required=True, help="Manifest of background clips")
     parser.add_argument("--positives-manifest", type=Path, default=None, help="Optional manifest of verified positives")
     parser.add_argument("--out", type=Path, required=True, help="Output anomaly artifact directory")
@@ -109,6 +129,7 @@ def main() -> None:
         args.embedder_model,
         args.background_manifest,
         args.out,
+        embedder_type=args.embedder_type,
         positives_manifest=args.positives_manifest,
         fp_target=args.fp_target,
         sim_threshold=args.sim_threshold,
