@@ -1,0 +1,158 @@
+[
+  {
+    "name": "forest_background",
+    "file": "clips/forest_background.mp3",
+    "title": "FOREST BACKGROUND",
+    "story": "A quiet window from a rainforest recorder. This is the baseline the detector learned.",
+    "reference": {
+      "anomaly_score": 0.09990103820748582,
+      "is_anomaly": false,
+      "distance": 2.2924547160980273,
+      "likelihoods": {
+        "chainsaw": 0.2440798163689328,
+        "fire_crackle": 0.0016477591761619493,
+        "gunshot": 0.5267958438367148,
+        "vehicle": 0.09955752884347525,
+        "unknown": 0.1279190517747152
+      },
+      "predicted_kind": "gunshot"
+    },
+    "classifier_scores": {
+      "chainsaw": 0.41753965616226196,
+      "gunshot": 0.002207903191447258,
+      "vehicle": 0.030502067878842354,
+      "fire_crackle": 0.0008868782897479832,
+      "background_unknown": 0.5488635897636414
+    }
+  },
+  {
+    "name": "chainsaw",
+    "file": "clips/chainsaw.mp3",
+    "title": "CHAINSAW",
+    "story": "Saw teeth in the soundscape. Watch the score climb and the attribution light up.",
+    "reference": {
+      "anomaly_score": 0.6977758526209437,
+      "is_anomaly": false,
+      "distance": 4.589544610841696,
+      "likelihoods": {
+        "chainsaw": 0.5464232306244912,
+        "fire_crackle": 0.00748602106230894,
+        "gunshot": 0.11863245953262785,
+        "vehicle": 0.15524488999383187,
+        "unknown": 0.17221339878674014
+      },
+      "predicted_kind": "chainsaw"
+    },
+    "classifier_scores": {
+      "chainsaw": 0.3839838206768036,
+      "gunshot": 0.0061926874332129955,
+      "vehicle": 0.057150669395923615,
+      "fire_crackle": 0.005279081873595715,
+      "background_unknown": 0.5473936796188354
+    }
+  },
+  {
+    "name": "gunshot",
+    "file": "clips/gunshot.mp3",
+    "title": "GUNSHOT",
+    "story": "An impulse the forest baseline cannot explain.",
+    "reference": {
+      "anomaly_score": 0.9080920213920116,
+      "is_anomaly": false,
+      "distance": 6.281861377271891,
+      "likelihoods": {
+        "chainsaw": 0.06374594431650886,
+        "fire_crackle": 0.00042525798029650967,
+        "gunshot": 0.8702451906187337,
+        "vehicle": 0.014618056696792548,
+        "unknown": 0.05096555038766837
+      },
+      "predicted_kind": "gunshot"
+    },
+    "classifier_scores": {
+      "chainsaw": 0.3236546516418457,
+      "gunshot": 0.0027309644501656294,
+      "vehicle": 0.07482925057411194,
+      "fire_crackle": 0.002504310803487897,
+      "background_unknown": 0.5962808132171631
+    }
+  },
+  {
+    "name": "vehicle",
+    "file": "clips/vehicle.mp3",
+    "title": "VEHICLE ENGINE",
+    "story": "Engine drone at the edge of the soundscape.",
+    "reference": {
+      "anomaly_score": 0.50145685364747,
+      "is_anomaly": false,
+      "distance": 3.6307864298411987,
+      "likelihoods": {
+        "chainsaw": 0.18524125158832228,
+        "fire_crackle": 0.03508240665389239,
+        "gunshot": 0.027366957266157347,
+        "vehicle": 0.6923721767318888,
+        "unknown": 0.05993720775973921
+      },
+      "predicted_kind": "vehicle"
+    },
+    "classifier_scores": {
+      "chainsaw": 0.39231249690055847,
+      "gunshot": 0.000802402850240469,
+      "vehicle": 0.07135298103094101,
+      "fire_crackle": 0.0024630262050777674,
+      "background_unknown": 0.5330690741539001
+    }
+  },
+  {
+    "name": "fire",
+    "file": "clips/fire.flac",
+    "title": "FIRE CRACKLE",
+    "story": "Burning wood at close range. This one crosses the deployed alert line.",
+    "reference": {
+      "anomaly_score": 0.9974727501628725,
+      "is_anomaly": true,
+      "distance": 10.13889866541841,
+      "likelihoods": {
+        "chainsaw": 0.00421092300171612,
+        "fire_crackle": 0.9434617122604514,
+        "gunshot": 0.0006610366584525907,
+        "vehicle": 0.029862202156040095,
+        "unknown": 0.021804125923339912
+      },
+      "predicted_kind": "fire_crackle"
+    },
+    "classifier_scores": {
+      "chainsaw": 0.41260090470314026,
+      "gunshot": 0.0012677689082920551,
+      "vehicle": 0.06423462182283401,
+      "fire_crackle": 0.0013107932172715664,
+      "background_unknown": 0.5205859541893005
+    }
+  },
+  {
+    "name": "crickets",
+    "file": "clips/crickets.mp3",
+    "title": "CRICKET CHORUS \u00b7 UNSEEN CLASS",
+    "story": "A sound from outside every training class. The detector flags it and honestly answers unknown.",
+    "reference": {
+      "anomaly_score": 0.8544321036846998,
+      "is_anomaly": false,
+      "distance": 5.423577825261294,
+      "likelihoods": {
+        "chainsaw": 0.10200016707193629,
+        "fire_crackle": 0.16019535494387452,
+        "gunshot": 0.001983500160657341,
+        "vehicle": 0.2803434355520266,
+        "unknown": 0.45547754227150516
+      },
+      "predicted_kind": "unknown"
+    },
+    "classifier_scores": {
+      "chainsaw": 0.42689967155456543,
+      "gunshot": 0.0026075514033436775,
+      "vehicle": 0.058948345482349396,
+      "fire_crackle": 0.004565996117889881,
+      "background_unknown": 0.5069783926010132
+    }
+  }
+]
