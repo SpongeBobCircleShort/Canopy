@@ -25,3 +25,9 @@ api/test-canopy.db
 api/test-audio/
 demo-output/
 test-output.txt
+
+# Keploy: config is regenerated per run (see scripts/keploy_config.py),
+# recording DB is scratch. Recorded test cases in keploy/ ARE committed.
+/keploy.yml
+api/keploy.db
+keploy/reports/
