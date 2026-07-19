@@ -17,7 +17,7 @@ export default function Layout({ profile, onLogout, health, message, error, isDe
 
   useEffect(() => {
     const page = PAGE_TITLES[location.pathname]
-    document.title = page ? `Canopy — ${page}` : 'Canopy'
+    document.title = page ? `Canopy · ${page}` : 'Canopy'
   }, [location.pathname])
 
   function closeSidebar() {

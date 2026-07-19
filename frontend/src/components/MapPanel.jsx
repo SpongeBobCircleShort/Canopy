@@ -2,38 +2,38 @@ import { Fragment, useEffect, useMemo, useState } from 'react'
 import { CircleMarker, GeoJSON, MapContainer, Popup, TileLayer, useMap, useMapEvents } from 'react-leaflet'
 
 function alertStyle(alert, scale) {
-  const base = { color: '#111111', weight: Math.max(1, 4 * scale), fillOpacity: 1 }
+  const base = { color: '#040404', weight: Math.max(1, 4 * scale), fillOpacity: 1 }
 
   if (alert.priority === 'critical') {
     base.className = 'marker-pulse'
   }
 
   if (alert.metadata?.fusion_score !== undefined || alert.type === 'fusion' || alert.type === 'fused_logging_risk') {
-    return { ...base, fillColor: '#8b5cf6' }
+    return { ...base, fillColor: '#e8e4da' }
   }
 
   switch (alert.priority) {
     case 'critical':
-      return { ...base, fillColor: '#d32f2f' }
+      return { ...base, fillColor: '#e05a3a' }
     case 'high':
-      return { ...base, fillColor: '#d98218' }
+      return { ...base, fillColor: '#d8b45a' }
     case 'medium':
-      return { ...base, fillColor: '#85b91b' }
+      return { ...base, fillColor: '#94a878' }
     case 'low':
     default:
-      return { ...base, fillColor: '#267bc4' }
+      return { ...base, fillColor: '#6f7a68' }
   }
 }
 
 function satelliteChangeColor(source) {
   switch (source) {
     case 'sentinel_2':
-      return '#00f0ff' // Bright cyan
+      return '#7f96a8' // Bright cyan
     case 'csv_ndvi':
-      return '#d4ff00' // Yellow
+      return '#c9c39a' // Yellow
     case 'manual':
     default:
-      return '#ffffff' // White
+      return '#e8e4da' // Cream
   }
 }
 
@@ -55,7 +55,7 @@ function DynamicMarkers({ alerts, sensors, satelliteChanges, regions = [] }) {
           <GeoJSON
             key={`region-${region.id}`}
             data={geo}
-            style={{ color: '#62d2c1', weight: 1.5, fillOpacity: 0.07, dashArray: '6 4' }}
+            style={{ color: '#94a878', weight: 1.5, fillOpacity: 0.07, dashArray: '6 4' }}
           >
             <Popup><strong>{region.name}</strong></Popup>
           </GeoJSON>
@@ -67,7 +67,7 @@ function DynamicMarkers({ alerts, sensors, satelliteChanges, regions = [] }) {
           <CircleMarker
             key={`sensor-${sensor.id}`}
             center={[sensor.location.lat, sensor.location.lon]}
-            pathOptions={{ color: '#111111', weight: Math.max(1, 3 * scale), fillColor: '#62d2c1', fillOpacity: 1 }}
+            pathOptions={{ color: '#040404', weight: Math.max(1, 3 * scale), fillColor: '#94a878', fillOpacity: 1 }}
             radius={Math.max(2, 8 * scale)}
           >
             <Popup>
@@ -84,7 +84,7 @@ function DynamicMarkers({ alerts, sensors, satelliteChanges, regions = [] }) {
           <CircleMarker
             key={`satellite-change-${change.id}`}
             center={[change.latitude, change.longitude]}
-            pathOptions={{ color: '#111111', weight: Math.max(1, 3 * scale), fillColor: satelliteChangeColor(change.source), fillOpacity: 1 }}
+            pathOptions={{ color: '#040404', weight: Math.max(1, 3 * scale), fillColor: satelliteChangeColor(change.source), fillOpacity: 1 }}
             radius={Math.max(2.5, 10 * scale)}
           >
             <Popup>
@@ -132,9 +132,9 @@ function DynamicMarkers({ alerts, sensors, satelliteChanges, regions = [] }) {
               <CircleMarker
                 center={[alert.location.lat, alert.location.lon]}
                 pathOptions={{
-                  color: '#62a7bf',
+                  color: '#94a878',
                   weight: 1,
-                  fillColor: '#62a7bf',
+                  fillColor: '#94a878',
                   fillOpacity: spatialDecay * 0.25,
                   dashArray: '4, 4',
                 }}

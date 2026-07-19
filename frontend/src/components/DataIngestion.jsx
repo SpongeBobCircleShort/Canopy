@@ -53,7 +53,10 @@ export default function DataIngestion({
   return (
     <div className="page-content">
       <header className="page-header">
-        <h2>Data Ingestion & Fusion</h2>
+        <div>
+          <p className="page-kicker">[ FIELD DATA · UPLINK ]</p>
+          <h2>Data Ingestion & Fusion</h2>
+        </div>
         <div className="header-actions">
           <button className="export-button" onClick={() => submitWithLocalError(onExportAlerts, 'Alerts CSV exported successfully.')} disabled={!isAdmin}>
             Export CSV

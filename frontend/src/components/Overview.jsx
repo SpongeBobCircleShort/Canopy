@@ -53,8 +53,8 @@ function AlertTrendChart({ data }) {
     >
       <defs>
         <linearGradient id="canopy-trendFill" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#4A7C59" stopOpacity="0.35" />
-          <stop offset="100%" stopColor="#4A7C59" stopOpacity="0.02" />
+          <stop offset="0%" stopColor="#94a878" stopOpacity="0.35" />
+          <stop offset="100%" stopColor="#94a878" stopOpacity="0.02" />
         </linearGradient>
       </defs>
       {[0, 0.5, 1].map((t) => {
@@ -62,18 +62,18 @@ function AlertTrendChart({ data }) {
         return <line key={t} x1={PAD.left} y1={y} x2={PAD.left + chartW} y2={y} stroke="rgba(255,255,255,0.05)" strokeWidth="1" />
       })}
       <path d={areaPath} fill="url(#canopy-trendFill)" />
-      <polyline points={linePoints} fill="none" stroke="#4A7C59" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
+      <polyline points={linePoints} fill="none" stroke="#94a878" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
       {points.map((p, i) => (
-        <circle key={i} cx={p.x} cy={p.y} r="3" fill="#4A7C59" stroke="rgba(10,15,10,1)" strokeWidth="1.5">
+        <circle key={i} cx={p.x} cy={p.y} r="3" fill="#94a878" stroke="#040404" strokeWidth="1.5">
           <title>{p.label}: {p.count} alert{p.count !== 1 ? 's' : ''}</title>
         </circle>
       ))}
       {points.filter((_, i) => labelIndices.includes(i)).map((p) => (
-        <text key={p.label} x={p.x} y={H - 4} textAnchor="middle" fill="rgba(122,138,122,0.7)" fontSize="9" fontFamily="Inter, system-ui, sans-serif">
+        <text key={p.label} x={p.x} y={H - 4} textAnchor="middle" fill="rgba(232,228,218,0.4)" fontSize="9" fontFamily="Inter, system-ui, sans-serif">
           {p.label}
         </text>
       ))}
-      <text x={PAD.left - 4} y={PAD.top + 4} textAnchor="end" fill="rgba(122,138,122,0.7)" fontSize="9" fontFamily="Inter, system-ui, sans-serif">
+      <text x={PAD.left - 4} y={PAD.top + 4} textAnchor="end" fill="rgba(232,228,218,0.4)" fontSize="9" fontFamily="Inter, system-ui, sans-serif">
         {maxCount}
       </text>
     </svg>
@@ -134,7 +134,10 @@ export default function Overview({
   return (
     <div className="page-content">
       <header className="page-header" style={{ position: 'relative', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h2 style={{ fontFamily: 'var(--font-label)', fontWeight: 600, letterSpacing: '0.10em', fontSize: '1.4rem', color: '#FFFFFF', margin: 0 }}>GLOBAL OVERVIEW</h2>
+        <div>
+          <p className="page-kicker">[ CONTROL ROOM · RECEIVING ]</p>
+          <h2>Global overview</h2>
+        </div>
 
         <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
           {lastUpdatedAt && (
@@ -195,7 +198,7 @@ export default function Overview({
 
           {/* Detection Activity Trend Chart */}
           <div style={{ marginBottom: '28px', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '20px' }}>
-            <h2 style={{ fontFamily: 'var(--font-label)', textTransform: 'uppercase', letterSpacing: '0.10em', fontSize: '0.78rem', color: '#FFFFFF', fontWeight: 500, marginBottom: '8px' }}>
+            <h2 style={{ fontFamily: 'var(--font-label)', textTransform: 'uppercase', letterSpacing: '0.10em', fontSize: '0.72rem', color: 'var(--db-text-2)', fontWeight: 400, marginBottom: '8px' }}>
               Detection Activity
               <span style={{ fontWeight: 300, fontSize: '0.68rem', color: '#666', marginLeft: '8px', textTransform: 'none', letterSpacing: 0 }}>
                 last 8 weeks
@@ -206,7 +209,7 @@ export default function Overview({
 
           {/* Priority Distribution Chart */}
           <div style={{ marginBottom: '32px', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '20px' }}>
-            <h2 style={{ fontFamily: 'var(--font-label)', textTransform: 'uppercase', letterSpacing: '0.10em', fontSize: '0.78rem', color: '#FFFFFF', fontWeight: 500, marginBottom: '12px' }}>Priority Distribution</h2>
+            <h2 style={{ fontFamily: 'var(--font-label)', textTransform: 'uppercase', letterSpacing: '0.10em', fontSize: '0.72rem', color: 'var(--db-text-2)', fontWeight: 400, marginBottom: '12px' }}>Priority Distribution</h2>
             <div className="priority-chart">
               {(() => {
                 const priorityCounts = alerts.reduce(
@@ -238,7 +241,7 @@ export default function Overview({
           {/* Alert Filters + List */}
           <div style={{ marginBottom: '16px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-              <h2 style={{ fontFamily: 'var(--font-label)', textTransform: 'uppercase', letterSpacing: '0.10em', fontSize: '0.78rem', color: '#FFFFFF', fontWeight: 500, margin: 0 }}>RECENT ALERTS</h2>
+              <h2 style={{ fontFamily: 'var(--font-label)', textTransform: 'uppercase', letterSpacing: '0.10em', fontSize: '0.72rem', color: 'var(--db-text-2)', fontWeight: 400, margin: 0 }}>RECENT ALERTS</h2>
               <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.70rem', color: '#666' }}>
                 {filteredAlerts.length} of {alerts.length}
               </span>
