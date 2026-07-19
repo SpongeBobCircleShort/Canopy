@@ -9,3 +9,6 @@ PyYAML>=6.0,<7
 soundfile>=0.13,<1
 datasets>=4.8,<5
 kagglehub>=0.4,<1
+librosa>=0.10,<1  # OS-decoder transcode for m4a/aac (no ffmpeg needed)
+birdnetlib>=0.17,<1  # BirdNET embedding backbone
+ai-edge-litert>=1.0  # LiteRT runtime (avoids full TensorFlow)
