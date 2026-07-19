@@ -89,8 +89,10 @@ export default function ForestLossMap({ cells = demoIndiaNdviCells }) {
   return (
     <section className="forest-loss-view">
       <header className="page-header">
-        <p className="page-kicker">[ SATELLITE CROSS-CHECK ]</p>
-        <h1>Forest loss · India</h1>
+        <div>
+          <p className="page-kicker">[ SATELLITE CROSS-CHECK ]</p>
+          <h1>Forest loss · India</h1>
+        </div>
         <p className="page-subtitle">
           Satellite change across monitored Indian forest landscapes. The live pipeline scores
           AlphaEarth annual embedding change, attributed by Dynamic World land-cover transitions;

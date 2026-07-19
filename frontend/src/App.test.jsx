@@ -114,6 +114,7 @@ describe('App', () => {
     expect(await screen.findByRole('heading', { name: /Global Overview/i })).toBeInTheDocument()
     expect(screen.getByTestId('map')).toBeInTheDocument()
 
+    fireEvent.click(screen.getByRole('button', { name: /Open navigation menu/i }))
     fireEvent.click(screen.getByRole('link', { name: /Data Ingestion/i }))
 
     expect(await screen.findByRole('heading', { name: /Data Ingestion & Fusion/i })).toBeInTheDocument()
@@ -130,6 +131,7 @@ describe('App', () => {
     expect(screen.getByTestId('map')).toBeInTheDocument()
     expect(screen.queryByText(/Authenticate/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/Sign up/i)).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /Open navigation menu/i }))
     expect(screen.getByRole('button', { name: /Reset Demo/i })).toBeInTheDocument()
   })
 
@@ -139,6 +141,7 @@ describe('App', () => {
 
     expect(await screen.findByRole('heading', { name: /Global Overview/i })).toBeInTheDocument()
 
+    fireEvent.click(screen.getByRole('button', { name: /Open navigation menu/i }))
     fireEvent.click(screen.getByRole('link', { name: /Configuration/i }))
 
     expect(await screen.findByRole('heading', { name: /Configuration & Settings/i })).toBeInTheDocument()
