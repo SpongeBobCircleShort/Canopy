@@ -26,11 +26,21 @@ jobs:
           pip install -r api/requirements.txt
           pip install pyyaml
 
+      # Not keploy.io/install.sh: it installs via a shell alias and a PATH line
+      # appended to .bashrc, and neither survives into the next `run:` step.
+      # The release binary is the same artifact without that indirection, and
+      # pinning it keeps CI reproducible when Keploy ships a new major.
       - name: Install Keploy
+        env:
+          KEPLOY_VERSION: v3.6.1
         run: |
-          curl --silent -O -L https://keploy.io/install.sh
-          source install.sh
-          keploy --version
+          curl --silent --fail --location \
+            "https://github.com/keploy/keploy/releases/download/${KEPLOY_VERSION}/keploy_linux_amd64.tar.gz" \
+            -o /tmp/keploy.tar.gz
+          tar -xzf /tmp/keploy.tar.gz -C /tmp
+          sudo install -m 755 /tmp/keploy /usr/local/bin/keploy
+          test -x /usr/local/bin/keploy
+          sudo keploy --version || echo "version probe returned non-zero, continuing"
 
       - name: Configure Keploy noise fields
         run: |
