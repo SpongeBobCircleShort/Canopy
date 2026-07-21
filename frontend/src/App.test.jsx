@@ -92,15 +92,15 @@ function renderAt(path) {
 }
 
 describe('App', () => {
-  it('renders the dashboard at / with a presentation link in the footer', async () => {
-    renderAt('/')
+  it('renders the dashboard at /app with a presentation link in the footer', async () => {
+    renderAt('/app')
 
     expect(await screen.findByRole('heading', { name: /Global Overview/i })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /View presentation/i })).toHaveAttribute('href', '/deck.html')
     expect(screen.getByText(/Institutional overview for geospatial data pilot/i)).toBeInTheDocument()
   })
 
-  it('redirects legacy /app paths to the new routes', async () => {
+  it('renders the dashboard directly at a nested /app path', async () => {
     window.localStorage.setItem('canopy_token', 'demo-token')
     renderAt('/app/ingestion')
 
@@ -109,7 +109,7 @@ describe('App', () => {
 
   it('renders dashboard overview and can navigate to ingestion', async () => {
     window.localStorage.setItem('canopy_token', 'demo-token')
-    renderAt('/')
+    renderAt('/app')
 
     expect(await screen.findByRole('heading', { name: /Global Overview/i })).toBeInTheDocument()
     expect(screen.getByTestId('map')).toBeInTheDocument()
@@ -125,7 +125,7 @@ describe('App', () => {
   })
 
   it('opens the dashboard without an auth gate', async () => {
-    renderAt('/')
+    renderAt('/app')
 
     expect(await screen.findByRole('heading', { name: /Global Overview/i })).toBeInTheDocument()
     expect(screen.getByTestId('map')).toBeInTheDocument()
@@ -137,7 +137,7 @@ describe('App', () => {
 
   it('can navigate to settings page', async () => {
     window.localStorage.setItem('canopy_token', 'demo-token')
-    renderAt('/')
+    renderAt('/app')
 
     expect(await screen.findByRole('heading', { name: /Global Overview/i })).toBeInTheDocument()
 
@@ -151,7 +151,7 @@ describe('App', () => {
 
   it('toggles live simulation state', async () => {
     window.localStorage.setItem('canopy_token', 'demo-token')
-    renderAt('/')
+    renderAt('/app')
 
     const simulateButton = await screen.findByRole('button', { name: /Simulate Live Data/i })
     expect(simulateButton).toBeInTheDocument()
@@ -165,7 +165,7 @@ describe('App', () => {
 
   it('opens and closes the responsive navigation menu', async () => {
     window.localStorage.setItem('canopy_token', 'demo-token')
-    renderAt('/')
+    renderAt('/app')
 
     await screen.findByRole('heading', { name: /Global Overview/i })
 
@@ -193,7 +193,7 @@ describe('App', () => {
       },
     ]
 
-    renderAt('/')
+    renderAt('/app')
 
     await screen.findByRole('heading', { name: /Global Overview/i })
     await waitFor(() => {
@@ -229,7 +229,7 @@ describe('App', () => {
       },
     ]
 
-    renderAt('/')
+    renderAt('/app')
 
     await screen.findByRole('heading', { name: /Global Overview/i })
     expect(await screen.findByText(/Anomaly score:/i)).toBeInTheDocument()
@@ -239,7 +239,7 @@ describe('App', () => {
 
   it('shows the India forest-loss NDVI overlay view', async () => {
     window.localStorage.setItem('canopy_token', 'demo-token')
-    renderAt('/')
+    renderAt('/app')
 
     await screen.findByRole('heading', { name: /Global Overview/i })
     fireEvent.click(screen.getByRole('link', { name: /Forest Loss/i }))

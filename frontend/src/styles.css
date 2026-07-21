@@ -1394,4 +1394,3 @@ body {
 .control-card:hover, .alert-card:hover, .satellite-change-card:hover {
   border-color: var(--db-border-hover) !important;
 }
-

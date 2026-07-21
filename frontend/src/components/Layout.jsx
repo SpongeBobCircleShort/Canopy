@@ -4,22 +4,22 @@ import { Link, Outlet, useLocation } from 'react-router-dom'
 import ToastStack from './ToastStack.jsx'
 
 const PAGE_TITLES = {
-  '/': 'Overview',
-  '/forest-loss': 'Forest Loss',
-  '/ingestion': 'Data Ingestion',
-  '/clips': 'Clips Review',
-  '/settings': 'Configuration',
+  '/app': 'Overview',
+  '/app/forest-loss': 'Forest Loss',
+  '/app/ingestion': 'Data Ingestion',
+  '/app/clips': 'Clips Review',
+  '/app/settings': 'Configuration',
 }
 
 const PRIMARY_LINKS = [
-  ['/', 'Overview'],
-  ['/forest-loss', 'Forest Loss'],
+  ['/app', 'Overview'],
+  ['/app/forest-loss', 'Forest Loss'],
 ]
 
 const MENU_LINKS = [
-  ['/ingestion', 'Data Ingestion'],
-  ['/clips', 'Clips Review'],
-  ['/settings', 'Configuration'],
+  ['/app/ingestion', 'Data Ingestion'],
+  ['/app/clips', 'Clips Review'],
+  ['/app/settings', 'Configuration'],
 ]
 
 export default function Layout({ profile, onLogout, health, message, error, isDemoMode = false }) {
@@ -60,7 +60,7 @@ export default function Layout({ profile, onLogout, health, message, error, isDe
             <span />
             <span />
           </button>
-          <div className="sidebar-wordmark">CANOPY</div>
+          <a href="/" className="sidebar-wordmark" aria-label="Back to landing page">CANOPY</a>
         </div>
 
         <nav className="top-nav-pills" aria-label="Primary">
@@ -111,6 +111,7 @@ export default function Layout({ profile, onLogout, health, message, error, isDe
         <footer className="layout-footer">
           <span>Arjun Tyagi · Penn State · Open source · Institutional overview for geospatial data pilot</span>
           <nav className="layout-footer-links">
+            <a href="/">Landing</a>
             <a href="/deck.html">View presentation</a>
           </nav>
         </footer>
