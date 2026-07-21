@@ -4,69 +4,99 @@ import { Link, Outlet, useLocation } from 'react-router-dom'
 import ToastStack from './ToastStack.jsx'
 
 const PAGE_TITLES = {
-  '/': 'Overview',
-  '/forest-loss': 'Forest Loss',
-  '/ingestion': 'Data Ingestion',
-  '/clips': 'Clips Review',
-  '/settings': 'Configuration',
+  '/app': 'Overview',
+  '/app/forest-loss': 'Forest Loss',
+  '/app/ingestion': 'Data Ingestion',
+  '/app/clips': 'Clips Review',
+  '/app/settings': 'Configuration',
 }
+
+const PRIMARY_LINKS = [
+  ['/app', 'Overview'],
+  ['/app/forest-loss', 'Forest Loss'],
+]
+
+const MENU_LINKS = [
+  ['/app/ingestion', 'Data Ingestion'],
+  ['/app/clips', 'Clips Review'],
+  ['/app/settings', 'Configuration'],
+]
 
 export default function Layout({ profile, onLogout, health, message, error, isDemoMode = false }) {
   const location = useLocation()
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+  const [isMenuOpen, setIsMenuOpen] = useState(false)
 
   useEffect(() => {
     const page = PAGE_TITLES[location.pathname]
-    document.title = page ? `Canopy — ${page}` : 'Canopy'
+    document.title = page ? `Canopy · ${page}` : 'Canopy'
   }, [location.pathname])
 
-  function closeSidebar() {
-    setIsSidebarOpen(false)
+  useEffect(() => {
+    function onKey(event) {
+      if (event.key === 'Escape') setIsMenuOpen(false)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
+  function closeMenu() {
+    setIsMenuOpen(false)
   }
+
+  const healthClass = isDemoMode ? 'demo' : (health.status === 'ok' || health.status === 'healthy') ? 'ok' : 'error'
 
   return (
     <div className="layout-container">
-      <button
-        className="sidebar-toggle"
-        type="button"
-        aria-label={isSidebarOpen ? 'Close navigation menu' : 'Open navigation menu'}
-        aria-expanded={isSidebarOpen}
-        onClick={() => setIsSidebarOpen((current) => !current)}
-      >
-        <span />
-        <span />
-        <span />
-      </button>
-      {isSidebarOpen && <button className="sidebar-scrim" type="button" aria-label="Close navigation menu" onClick={closeSidebar} />}
-
-      <aside className={`main-sidebar glass-sidebar ${isSidebarOpen ? 'open' : ''}`}>
-        <div className="sidebar-header">
-          <div className="sidebar-wordmark">CANOPY</div>
-          <div className="sidebar-version">
-            <span className={`health-dot ${isDemoMode ? 'demo' : (health.status === 'ok' || health.status === 'healthy') ? 'ok' : 'error'}`} />
-            v0.2.0 / {isDemoMode ? 'DEMO' : (health.status || '').toUpperCase()}
-          </div>
+      <header className="top-bar">
+        <div className="top-bar-left">
+          <button
+            className="menu-toggle"
+            type="button"
+            aria-label={isMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
+            aria-expanded={isMenuOpen}
+            onClick={() => setIsMenuOpen((current) => !current)}
+          >
+            <span />
+            <span />
+            <span />
+          </button>
+          <a href="/" className="sidebar-wordmark" aria-label="Back to landing page">CANOPY</a>
         </div>
-        <hr className="sidebar-header-rule" />
 
-        <nav className="sidebar-nav">
-          <Link to="/" className={location.pathname === '/' ? 'active' : ''} onClick={closeSidebar}>Overview</Link>
-          <Link to="/forest-loss" className={location.pathname === '/forest-loss' ? 'active' : ''} onClick={closeSidebar}>Forest Loss</Link>
-          <Link to="/ingestion" className={location.pathname === '/ingestion' ? 'active' : ''} onClick={closeSidebar}>Data Ingestion</Link>
-          <Link to="/clips" className={location.pathname === '/clips' ? 'active' : ''} onClick={closeSidebar}>Clips Review</Link>
-          <Link to="/settings" className={location.pathname === '/settings' ? 'active' : ''} onClick={closeSidebar}>Configuration</Link>
+        <nav className="top-nav-pills" aria-label="Primary">
+          {PRIMARY_LINKS.map(([to, label]) => (
+            <Link key={to} to={to} className={location.pathname === to ? 'active' : ''} onClick={closeMenu}>
+              {label}
+            </Link>
+          ))}
         </nav>
 
-        <div className="sidebar-footer">
-          {profile?.organization && (
-            <div className="org-info">
-              <strong>{profile.organization.name}</strong>
-              <span>{profile.role}</span>
-            </div>
-          )}
-          <button className="logout-btn" onClick={onLogout}>{isDemoMode ? 'Reset Demo' : 'Log Out'}</button>
+        <div className="top-bar-right">
+          <span className={`health-dot ${healthClass}`} />
+          <span>v0.2.0 / {isDemoMode ? 'DEMO' : (health.status || '').toUpperCase()}</span>
         </div>
-      </aside>
+
+        {isMenuOpen && (
+          <nav className="menu-panel" aria-label="More pages">
+            {MENU_LINKS.map(([to, label]) => (
+              <Link key={to} to={to} className={location.pathname === to ? 'active' : ''} onClick={closeMenu}>
+                {label}
+              </Link>
+            ))}
+            <hr className="menu-rule" />
+            {profile?.organization && (
+              <div className="org-info">
+                <strong>{profile.organization.name}</strong>
+                <span>{profile.role}</span>
+              </div>
+            )}
+            <button className="logout-btn" onClick={() => { closeMenu(); onLogout() }}>
+              {isDemoMode ? 'Reset Demo' : 'Log Out'}
+            </button>
+          </nav>
+        )}
+      </header>
+      {isMenuOpen && <button className="menu-scrim" type="button" aria-label="Close navigation menu" onClick={closeMenu} />}
 
       <main className="layout-content">
         <ToastStack
@@ -81,6 +111,7 @@ export default function Layout({ profile, onLogout, health, message, error, isDe
         <footer className="layout-footer">
           <span>Arjun Tyagi · Penn State · Open source · Institutional overview for geospatial data pilot</span>
           <nav className="layout-footer-links">
+            <a href="/">Landing</a>
             <a href="/deck.html">View presentation</a>
           </nav>
         </footer>

@@ -92,15 +92,15 @@ function renderAt(path) {
 }
 
 describe('App', () => {
-  it('renders the dashboard at / with a presentation link in the footer', async () => {
-    renderAt('/')
+  it('renders the dashboard at /app with a presentation link in the footer', async () => {
+    renderAt('/app')
 
     expect(await screen.findByRole('heading', { name: /Global Overview/i })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /View presentation/i })).toHaveAttribute('href', '/deck.html')
     expect(screen.getByText(/Institutional overview for geospatial data pilot/i)).toBeInTheDocument()
   })
 
-  it('redirects legacy /app paths to the new routes', async () => {
+  it('renders the dashboard directly at a nested /app path', async () => {
     window.localStorage.setItem('canopy_token', 'demo-token')
     renderAt('/app/ingestion')
 
@@ -109,11 +109,12 @@ describe('App', () => {
 
   it('renders dashboard overview and can navigate to ingestion', async () => {
     window.localStorage.setItem('canopy_token', 'demo-token')
-    renderAt('/')
+    renderAt('/app')
 
     expect(await screen.findByRole('heading', { name: /Global Overview/i })).toBeInTheDocument()
     expect(screen.getByTestId('map')).toBeInTheDocument()
 
+    fireEvent.click(screen.getByRole('button', { name: /Open navigation menu/i }))
     fireEvent.click(screen.getByRole('link', { name: /Data Ingestion/i }))
 
     expect(await screen.findByRole('heading', { name: /Data Ingestion & Fusion/i })).toBeInTheDocument()
@@ -124,21 +125,23 @@ describe('App', () => {
   })
 
   it('opens the dashboard without an auth gate', async () => {
-    renderAt('/')
+    renderAt('/app')
 
     expect(await screen.findByRole('heading', { name: /Global Overview/i })).toBeInTheDocument()
     expect(screen.getByTestId('map')).toBeInTheDocument()
     expect(screen.queryByText(/Authenticate/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/Sign up/i)).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /Open navigation menu/i }))
     expect(screen.getByRole('button', { name: /Reset Demo/i })).toBeInTheDocument()
   })
 
   it('can navigate to settings page', async () => {
     window.localStorage.setItem('canopy_token', 'demo-token')
-    renderAt('/')
+    renderAt('/app')
 
     expect(await screen.findByRole('heading', { name: /Global Overview/i })).toBeInTheDocument()
 
+    fireEvent.click(screen.getByRole('button', { name: /Open navigation menu/i }))
     fireEvent.click(screen.getByRole('link', { name: /Configuration/i }))
 
     expect(await screen.findByRole('heading', { name: /Configuration & Settings/i })).toBeInTheDocument()
@@ -148,7 +151,7 @@ describe('App', () => {
 
   it('toggles live simulation state', async () => {
     window.localStorage.setItem('canopy_token', 'demo-token')
-    renderAt('/')
+    renderAt('/app')
 
     const simulateButton = await screen.findByRole('button', { name: /Simulate Live Data/i })
     expect(simulateButton).toBeInTheDocument()
@@ -162,7 +165,7 @@ describe('App', () => {
 
   it('opens and closes the responsive navigation menu', async () => {
     window.localStorage.setItem('canopy_token', 'demo-token')
-    renderAt('/')
+    renderAt('/app')
 
     await screen.findByRole('heading', { name: /Global Overview/i })
 
@@ -190,7 +193,7 @@ describe('App', () => {
       },
     ]
 
-    renderAt('/')
+    renderAt('/app')
 
     await screen.findByRole('heading', { name: /Global Overview/i })
     await waitFor(() => {
@@ -226,7 +229,7 @@ describe('App', () => {
       },
     ]
 
-    renderAt('/')
+    renderAt('/app')
 
     await screen.findByRole('heading', { name: /Global Overview/i })
     expect(await screen.findByText(/Anomaly score:/i)).toBeInTheDocument()
@@ -236,12 +239,12 @@ describe('App', () => {
 
   it('shows the India forest-loss NDVI overlay view', async () => {
     window.localStorage.setItem('canopy_token', 'demo-token')
-    renderAt('/')
+    renderAt('/app')
 
     await screen.findByRole('heading', { name: /Global Overview/i })
     fireEvent.click(screen.getByRole('link', { name: /Forest Loss/i }))
 
-    expect(await screen.findByRole('heading', { name: /Forest Loss — India/i })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: /Forest loss · India/i })).toBeInTheDocument()
     expect(screen.getByText(/Change cells/i)).toBeInTheDocument()
     expect(screen.getByText(/Severe hotspots/i)).toBeInTheDocument()
     expect(screen.getByText(/Landscape breakdown/i)).toBeInTheDocument()

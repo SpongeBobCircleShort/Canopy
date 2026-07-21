@@ -66,7 +66,10 @@ export default function Settings({
   return (
     <div className="page-content">
       <header className="page-header">
-        <h2>Configuration & Settings</h2>
+        <div>
+          <p className="page-kicker">[ SYSTEM CONTROLS ]</p>
+          <h2>Configuration & Settings</h2>
+        </div>
       </header>
       
       <ToastStack 

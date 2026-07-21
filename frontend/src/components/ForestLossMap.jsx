@@ -6,11 +6,11 @@ import { demoIndiaNdviCells } from '../demoData.js'
 // Magnitude is loss-magnitude for NDVI demo cells (−Δ) and severity for the live
 // AlphaEarth-embedding cells — both in the same 0–1 range so one ramp serves both.
 const CHANGE_BANDS = [
-  { min: 0.30, color: '#b91c1c', label: 'Severe (≥0.30)' },
-  { min: 0.15, color: '#ea580c', label: 'Moderate (0.15–0.30)' },
-  { min: 0.07, color: '#f59e0b', label: 'Mild (0.07–0.15)' },
-  { min: 0.03, color: '#84cc16', label: 'Slight (0.03–0.07)' },
-  { min: 0.0, color: '#15803d', label: 'Healthy forest (<0.03)' },
+  { min: 0.30, color: '#e05a3a', label: 'Severe (≥0.30)' },
+  { min: 0.15, color: '#d8843f', label: 'Moderate (0.15–0.30)' },
+  { min: 0.07, color: '#d8b45a', label: 'Mild (0.07–0.15)' },
+  { min: 0.03, color: '#b9c98a', label: 'Slight (0.03–0.07)' },
+  { min: 0.0, color: '#6f8f5f', label: 'Healthy forest (<0.03)' },
 ]
 
 // Dynamic World land-cover transitions → human-facing cause.
@@ -89,7 +89,10 @@ export default function ForestLossMap({ cells = demoIndiaNdviCells }) {
   return (
     <section className="forest-loss-view">
       <header className="page-header">
-        <h1>Forest Loss — India</h1>
+        <div>
+          <p className="page-kicker">[ SATELLITE CROSS-CHECK ]</p>
+          <h1>Forest loss · India</h1>
+        </div>
         <p className="page-subtitle">
           Satellite change across monitored Indian forest landscapes. The live pipeline scores
           AlphaEarth annual embedding change, attributed by Dynamic World land-cover transitions;
@@ -103,11 +106,11 @@ export default function ForestLossMap({ cells = demoIndiaNdviCells }) {
           <span>Change cells</span>
         </div>
         <div className="glass-card">
-          <strong style={{ color: '#f59e0b' }}>{stats.lossCells.length}</strong>
+          <strong style={{ color: '#d8b45a' }}>{stats.lossCells.length}</strong>
           <span>Forest-loss cells</span>
         </div>
         <div className="glass-card">
-          <strong style={{ color: '#b91c1c' }}>{stats.severe.length}</strong>
+          <strong style={{ color: '#e05a3a' }}>{stats.severe.length}</strong>
           <span>Severe hotspots</span>
         </div>
         <div className="glass-card">

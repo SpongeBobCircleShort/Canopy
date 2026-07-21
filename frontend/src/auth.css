@@ -8,7 +8,7 @@
 
 .auth-left {
   flex: 1;
-  background: linear-gradient(160deg, #1A3A2A 0%, #0D1F15 100%);
+  background: linear-gradient(160deg, #0d120c 0%, #040404 100%);
   position: relative;
   display: flex;
   flex-direction: column;
@@ -39,7 +39,7 @@
 
 .auth-step-card {
   background: rgba(255,255,255,0.08);
-  border-radius: 8px;
+  border-radius: 2px;
   padding: 20px;
   flex: 1;
   display: flex;
@@ -152,21 +152,21 @@
 }
 
 .auth-submit {
-  background: var(--moss);
+  background: var(--cream);
   color: var(--ink);
   font-family: var(--font-label);
-  font-size: 0.9rem;
-  font-weight: 600;
+  font-size: 0.78rem;
+  font-weight: 500;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.16em;
   padding: 16px;
-  border-radius: 6px;
-  border: none;
+  border-radius: 999px;
+  border: 1px solid var(--cream);
   cursor: pointer;
   margin-top: 12px;
   transition: all 0.2s ease;
 }
 
 .auth-submit:hover {
-  background: var(--white);
+  background: var(--off-white);
 }

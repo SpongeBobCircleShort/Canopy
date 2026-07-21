@@ -10,7 +10,7 @@ export default function AuthPage() {
   function handleLogin(e) {
     e.preventDefault()
     // Mock login that forwards to dashboard
-    navigate('/')
+    navigate('/app')
   }
 
   return (

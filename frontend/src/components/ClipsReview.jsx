@@ -172,7 +172,10 @@ export default function ClipsReview({ clips, sensors, onFetchLabels, onAddLabel,
   return (
     <div className="page-content">
       <header className="page-header">
-        <h2>Clips Review</h2>
+        <div>
+          <p className="page-kicker">[ SIGNAL VERIFICATION ]</p>
+          <h2>Clips Review</h2>
+        </div>
         {isAdmin && (
           <button className="export-button" onClick={handleExport} disabled={exporting} type="button">
             {exporting ? 'Exporting…' : 'Export CSV'}
