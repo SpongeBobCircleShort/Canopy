@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Canopy · Nature is giving out signals</title>
+  <meta name="description" content="Canopy listens to standing forests. Acoustic and satellite intelligence that receives the signals nature is already sending." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <nav class="nav">
+    <a class="wordmark" href="#top">
+      <span class="mark"></span>
+      <span>CANOPY</span>
+    </a>
+    <div class="nav-links">
+      <a href="#signals">SIGNALS</a>
+      <a href="#demo">DEMO</a>
+      <a href="#research">RESEARCH</a>
+      <a class="pill" href="https://canopyindia.vercel.app/login">ENTER THE DASHBOARD</a>
+    </div>
+  </nav>
+
+  <header class="hero" id="top">
+    <canvas id="scene"></canvas>
+    <div id="cards"></div>
+    <canvas id="veil"></canvas>
+
+    <div class="hero-copy">
+      <p class="kicker">[ LIVE FEED · 4 SITES · RECEIVING ]</p>
+      <h1>
+        <span>Nature is giving out signals.</span>
+        <span>Canopy is here to <em>receive</em> them.</span>
+      </h1>
+      <p class="sub">ACOUSTIC AND SATELLITE INTELLIGENCE FOR STANDING FORESTS</p>
+      <p class="hint" id="hint">[ MOVE THE LIGHT ]</p>
+    </div>
+
+    <div class="corner corner-bl">
+      <p>STATUS: RECEIVING</p>
+      <p>UPLINK: 24/7 · SOLAR</p>
+    </div>
+    <div class="corner corner-br">
+      <p>27.2911 N · 95.4103 E</p>
+      <p>DEHING PATKAI · ASSAM</p>
+    </div>
+    <div class="scroll-cue">
+      <span>SCROLL</span>
+      <span class="line"></span>
+    </div>
+
+    <div class="cursor" id="cursor"><i></i></div>
+  </header>
+
+  <main>
+    <section class="section" id="signals">
+      <p class="kicker reveal">[ 01 · THE SIGNALS ]</p>
+      <h2 class="reveal">The forest never stops talking.</h2>
+      <p class="lede reveal">
+        Every dawn chorus, every rain front, every chainsaw is a broadcast.
+        Canopy puts a receiver in the understory and another one in orbit,
+        then lets the two argue until only the truth is left.
+      </p>
+
+      <div class="grid">
+        <article class="cell reveal">
+          <p class="idx">01 / LISTEN</p>
+          <h3>Bioacoustics</h3>
+          <p>
+            Solar recorders listen around the clock. Every call, chorus and
+            engine becomes a timestamped, searchable signal with coordinates
+            attached.
+          </p>
+        </article>
+        <article class="cell reveal">
+          <p class="idx">02 / SUSPECT</p>
+          <h3>Open-set detection</h3>
+          <p>
+            Most models only recognise what they were trained on. Canopy flags
+            sounds it has never heard before, because the rarest signal is
+            often the one that matters.
+          </p>
+        </article>
+        <article class="cell reveal">
+          <p class="idx">03 / CONFIRM</p>
+          <h3>Satellite cross-check</h3>
+          <p>
+            Sentinel-2 passes confirm what the microphones suspect. Acoustic
+            anomalies are matched against canopy loss within days, not months.
+          </p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section demo" id="demo">
+      <p class="kicker reveal">[ 02 · FIELD TEST ]</p>
+      <h2 class="reveal">Run the detector. Right here.</h2>
+      <p class="lede reveal">
+        This is not a mock. The page loads Canopy's edge model, a 94 KB CNN
+        embedder and its open-set head, and runs it inside your browser.
+        Nothing you play or record leaves this tab. Pick a signal, or give it
+        one of your own.
+      </p>
+
+      <div class="demo-grid reveal">
+        <div class="demo-left">
+          <p class="demo-head">INPUT SIGNAL</p>
+          <div id="clip-list" class="clip-list"></div>
+          <div class="demo-inputs">
+            <button id="btn-mic" class="pill">RECORD 4 S FROM MIC</button>
+            <label class="pill file-label">UPLOAD AUDIO
+              <input id="file-input" type="file" accept="audio/*" hidden />
+            </label>
+          </div>
+          <p class="demo-note">
+            DETECTOR: anomaly-v1 · EMBEDDER: threat-cnn-forest-v1b ·
+            BASELINE: 569 forest background windows · RUNS LOCALLY VIA WASM
+          </p>
+        </div>
+
+        <div class="demo-right" id="demo-out">
+          <p class="demo-head">DETECTOR OUTPUT</p>
+          <canvas id="spec-canvas" width="201" height="64"></canvas>
+          <div class="score-row">
+            <div>
+              <p class="score-big"><span id="score-num">--</span></p>
+              <p class="score-cap" id="score-cap">ANOMALY SCORE</p>
+            </div>
+            <p class="verdict" id="verdict">STANDING BY</p>
+          </div>
+          <div class="meter">
+            <div class="meter-fill" id="meter-fill"></div>
+            <div class="meter-mark" title="deployed alert line"></div>
+          </div>
+          <p class="meter-cap">0 <span>DEPLOYED ALERT LINE AT 0.99</span> 1</p>
+          <div id="likelihoods" class="lik-list"></div>
+          <p class="demo-note" id="demo-status">MODEL LOADS ON FIRST RUN</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="band" id="research">
+      <p class="kicker reveal">[ 03 · THE POSITION ]</p>
+      <h2 class="reveal">
+        <span>Most systems classify what they know.</span>
+        <span><em>Canopy listens for what it does not.</em></span>
+      </h2>
+      <div class="cta-row reveal">
+        <a class="pill solid" href="https://canopyindia.vercel.app/login">ENTER THE DASHBOARD</a>
+        <a class="pill" href="#top">RETURN TO THE TREE</a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div>
+      <p class="wordmark-sm">CANOPY</p>
+      <p class="dim">FOREST INTELLIGENCE · BUILT IN INDIA</p>
+    </div>
+    <div class="dim center">
+      <p>STATUS: RECEIVING</p>
+      <p>MONITORING 4 SITES · 2 BACKBONES · 1 PLANET</p>
+    </div>
+    <div class="dim right">
+      <p>27.2911 N · 95.4103 E</p>
+      <p>© 2026 CANOPY</p>
+    </div>
+  </footer>
+
+  <div class="grain"></div>
+  <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.19.2/dist/ort.min.js" defer></script>
+  <script src="main.js"></script>
+  <script src="demo.js" defer></script>
+</body>
+</html>
