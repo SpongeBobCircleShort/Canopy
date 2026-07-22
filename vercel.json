@@ -4,7 +4,6 @@
   "outputDirectory": "frontend/dist",
   "rewrites": [
     { "source": "/app", "destination": "/app/index.html" },
-    { "source": "/app/(.*)", "destination": "/app/index.html" },
-    { "source": "/login", "destination": "/app/index.html" }
+    { "source": "/app/(.*)", "destination": "/app/index.html" }
   ]
 }
