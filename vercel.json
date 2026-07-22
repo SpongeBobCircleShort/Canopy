@@ -1,8 +1,7 @@
 {
   "installCommand": "cd frontend && npm ci",
-  "buildCommand": "cd frontend && npm run build && mkdir -p dist/app && mv dist/index.html dist/app/index.html && cp -R ../site/. dist/",
+  "buildCommand": "cd frontend && npm run build && if [ -d ../site ]; then mkdir -p dist/app && mv dist/index.html dist/app/index.html && cp -R ../site/. dist/; fi",
   "outputDirectory": "frontend/dist",
-  "cleanUrls": true,
   "rewrites": [
     { "source": "/app", "destination": "/app/index.html" },
     { "source": "/app/(.*)", "destination": "/app/index.html" },
