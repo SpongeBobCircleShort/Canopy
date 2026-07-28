@@ -76,15 +76,27 @@ class CachedEmbedder:
     def __init__(self, model_spec: str | Path, cache_dir: Path) -> None:
         self.model_spec = str(model_spec)
         self.is_panns = self.model_spec == "panns"
-        name = PannsEmbedder.name if self.is_panns else Path(self.model_spec).name
+        self.is_birdnet = self.model_spec == "birdnet"
+        if self.is_panns:
+            name = PannsEmbedder.name
+        elif self.is_birdnet:
+            name = "birdnet_v2.4"
+        else:
+            name = Path(self.model_spec).name
         self.cache_dir = Path(cache_dir) / name
         self.cache_dir.mkdir(parents=True, exist_ok=True)
-        self._service: AudioInferenceService | PannsEmbedder | None = None
+        self._service = None
 
     @property
-    def service(self) -> AudioInferenceService | PannsEmbedder:
+    def service(self):
         if self._service is None:
-            self._service = PannsEmbedder() if self.is_panns else AudioInferenceService(Path(self.model_spec))
+            if self.is_panns:
+                self._service = PannsEmbedder()
+            elif self.is_birdnet:
+                from research.audio.birdnet_embedder import BirdNETEmbedder
+                self._service = BirdNETEmbedder()
+            else:
+                self._service = AudioInferenceService(Path(self.model_spec))
         return self._service
 
     def embed_manifest(self, manifest_path: Path, rows: list[dict[str, str]]) -> np.ndarray:

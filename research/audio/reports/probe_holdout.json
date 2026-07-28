@@ -1,0 +1,194 @@
+{
+  "fp_target": 0.1,
+  "embedders": {
+    "cnn": {
+      "per_site": {
+        "tambopata": {
+          "n_test_chainsaw": 41,
+          "n_test_background": 72,
+          "auroc": 0.7974254742547425,
+          "auroc_ci95": [
+            0.7075211013129706,
+            0.8804270967051776
+          ],
+          "threshold": 0.1832486370260712,
+          "clip_recall_at_fp": 0.34146341463414637,
+          "test_fp": 0.05555555555555555,
+          "event_recall_at_fp": 0.34146341463414637,
+          "n_events": 41
+        },
+        "romania": {
+          "n_test_chainsaw": 30,
+          "n_test_background": 15,
+          "auroc": 0.9555555555555556,
+          "auroc_ci95": [
+            0.8570476190476191,
+            1.0
+          ],
+          "threshold": 1.189794278056516,
+          "clip_recall_at_fp": 0.13333333333333333,
+          "test_fp": 0.0,
+          "event_recall_at_fp": 0.13793103448275862,
+          "n_events": 29
+        },
+        "pooks": {
+          "n_test_chainsaw": 10,
+          "n_test_background": 12,
+          "auroc": 0.9166666666666667,
+          "auroc_ci95": [
+            0.7589136904761904,
+            1.0
+          ],
+          "threshold": 1.092626187839011,
+          "clip_recall_at_fp": 0.1,
+          "test_fp": 0.0,
+          "event_recall_at_fp": 0.1,
+          "n_events": 10
+        },
+        "warsi": {
+          "n_test_chainsaw": 412,
+          "n_test_background": 198,
+          "auroc": 0.6041727959203687,
+          "auroc_ci95": [
+            0.5595694910660776,
+            0.6537353542907103
+          ],
+          "threshold": 0.39032592340747174,
+          "clip_recall_at_fp": 0.39563106796116504,
+          "test_fp": 0.23737373737373738,
+          "event_recall_at_fp": 0.39655172413793105,
+          "n_events": 406
+        }
+      },
+      "weighted_auroc": 0.6479654557747864,
+      "weighted_event_recall": 0.3702175281527593,
+      "weighted_clip_recall": 0.3691683569979716
+    },
+    "panns": {
+      "per_site": {
+        "tambopata": {
+          "n_test_chainsaw": 41,
+          "n_test_background": 72,
+          "auroc": 0.7168021680216802,
+          "auroc_ci95": [
+            0.604177033024287,
+            0.817752284053156
+          ],
+          "threshold": 0.8774194717452768,
+          "clip_recall_at_fp": 0.5365853658536586,
+          "test_fp": 0.1111111111111111,
+          "event_recall_at_fp": 0.5365853658536586,
+          "n_events": 41
+        },
+        "romania": {
+          "n_test_chainsaw": 30,
+          "n_test_background": 15,
+          "auroc": 0.9,
+          "auroc_ci95": [
+            0.804681737506915,
+            0.9807692307692307
+          ],
+          "threshold": 2.6717939173781087,
+          "clip_recall_at_fp": 0.7333333333333333,
+          "test_fp": 0.13333333333333333,
+          "event_recall_at_fp": 0.7586206896551724,
+          "n_events": 29
+        },
+        "pooks": {
+          "n_test_chainsaw": 10,
+          "n_test_background": 12,
+          "auroc": 0.625,
+          "auroc_ci95": [
+            0.35714285714285715,
+            0.859504132231405
+          ],
+          "threshold": 1.407670988754111,
+          "clip_recall_at_fp": 0.4,
+          "test_fp": 0.25,
+          "event_recall_at_fp": 0.4,
+          "n_events": 10
+        },
+        "warsi": {
+          "n_test_chainsaw": 412,
+          "n_test_background": 198,
+          "auroc": 0.7846915759537119,
+          "auroc_ci95": [
+            0.7509022287548253,
+            0.8207087430806332
+          ],
+          "threshold": 1.3273162024966592,
+          "clip_recall_at_fp": 0.5946601941747572,
+          "test_fp": 0.16666666666666666,
+          "event_recall_at_fp": 0.5935960591133005,
+          "n_events": 406
+        }
+      },
+      "weighted_auroc": 0.7828231606122071,
+      "weighted_event_recall": 0.5949699737207605,
+      "weighted_clip_recall": 0.5943204868154158
+    },
+    "birdnet": {
+      "per_site": {
+        "tambopata": {
+          "n_test_chainsaw": 41,
+          "n_test_background": 72,
+          "auroc": 0.7374661246612465,
+          "auroc_ci95": [
+            0.6272921074642799,
+            0.8343539295832608
+          ],
+          "threshold": 0.6354042731300464,
+          "clip_recall_at_fp": 0.4634146341463415,
+          "test_fp": 0.05555555555555555,
+          "event_recall_at_fp": 0.4634146341463415,
+          "n_events": 41
+        },
+        "romania": {
+          "n_test_chainsaw": 30,
+          "n_test_background": 15,
+          "auroc": 0.9733333333333334,
+          "auroc_ci95": [
+            0.911953456221198,
+            1.0
+          ],
+          "threshold": 2.481690722656304,
+          "clip_recall_at_fp": 0.9333333333333333,
+          "test_fp": 0.06666666666666667,
+          "event_recall_at_fp": 0.9655172413793104,
+          "n_events": 29
+        },
+        "pooks": {
+          "n_test_chainsaw": 10,
+          "n_test_background": 12,
+          "auroc": 0.8333333333333334,
+          "auroc_ci95": [
+            0.6324786324786325,
+            0.9905006105006106
+          ],
+          "threshold": 4.574181471712425,
+          "clip_recall_at_fp": 0.6,
+          "test_fp": 0.16666666666666666,
+          "event_recall_at_fp": 0.6,
+          "n_events": 10
+        },
+        "warsi": {
+          "n_test_chainsaw": 412,
+          "n_test_background": 198,
+          "auroc": 0.7765887025595762,
+          "auroc_ci95": [
+            0.7387316472741516,
+            0.8144980387417216
+          ],
+          "threshold": 0.6230699356023548,
+          "clip_recall_at_fp": 0.5024271844660194,
+          "test_fp": 0.10101010101010101,
+          "event_recall_at_fp": 0.5049261083743842,
+          "n_events": 406
+        }
+      },
+      "weighted_auroc": 0.7864583973610342,
+      "weighted_event_recall": 0.5314301701655693,
+      "weighted_clip_recall": 0.5273833671399595
+    }
+  }
+}

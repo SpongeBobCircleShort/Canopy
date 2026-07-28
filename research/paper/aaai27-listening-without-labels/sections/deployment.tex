@@ -1,7 +1,8 @@
 \section{Deployment: The Ranger-in-the-Loop Flywheel}
 \label{sec:deployment}
 
-The detector ships inside Canopy, an open-source forest-monitoring platform.
+The detector ships inside an open-source forest-monitoring platform that we
+release with this paper (name withheld for anonymous review).
 A field sensor uploads a clip; the API scores it with the fitted detector and,
 when $s(x)\ge\tau$, creates an anomaly alert carrying the anomaly score, the
 predicted kind, and the full likelihood vector including \emph{unknown}. The
@@ -14,7 +15,7 @@ clip-review UI are exported as a positives manifest and folded back into the
 prototype set. Because attribution is closed-form over a frozen embedding, this
 is a seconds-long refit, not a training run: the very labels the deployment
 generates are the labels that light up its classes. This is the operational
-realization of the $k$-curve in Section~\ref{sec:experiments} --- each
+realization of the $k$-curve in Section~\ref{sec:experiments}: each
 confirmation moves the system rightward along it.
 
 \paragraph{Why background-first fits social-impact constraints.} Under-resourced
@@ -22,7 +23,7 @@ conservation teams cannot commission labeled threat corpora for every reserve,
 but every site can record its own background on day one. Anchoring the detector
 to background makes the expensive resource (labeled positives) optional and
 incremental, and makes the tunable knob a single interpretable
-quantity --- the background false-positive budget that bounds wasted ranger
+quantity, the background false-positive budget that bounds wasted ranger
 patrols. The honest \emph{unknown} option means a novel threat (a new machine, a
 new vehicle) is surfaced rather than silently misfiled, which is the failure
 mode a fixed taxonomy cannot avoid.

@@ -4,39 +4,56 @@
 \paragraph{Acoustic monitoring for conservation.} Passive acoustic monitoring is
 established for biodiversity and increasingly for threat detection (chainsaws,
 gunshots, vehicles), with deployments such as Rainforest Connection converting
-recordings into ranger alerts. These systems predominantly use closed-set
-supervised classifiers and report in-domain metrics; cross-site generalization
-under a fixed false-positive budget is rarely measured. Our negative result
-quantifies that gap, and our detector targets the label-scarce, open-taxonomy
-regime deployments actually face.
-% CITE: Rainforest Connection / RFCx; bioacoustic threat-detection surveys.
+recordings into ranger alerts \citep{stowell2022bioacoustics}. These systems
+predominantly use closed-set supervised classifiers and report in-domain metrics; cross-site generalization
+under a fixed false-positive budget is rarely measured. A global expert assessment of
+PAM practice identifies manual validation of detector output as a priority
+bottleneck \citep{malerba2026pam}, which is why we treat reviewer attention,
+not accuracy, as the operative constraint. Our negative
+result quantifies the cross-site gap this reflects, and our detector targets the
+label-scarce, open-taxonomy regime deployments actually face.
+
 
 \paragraph{Few-shot bioacoustic event detection.} The DCASE few-shot bioacoustic
-task formalizes detecting novel sound events from a handful of labeled
-examples. Our prototype stage is in this spirit --- a class is defined by a few
-verified positives --- but we couple it to a background-only anomaly gate and an
+task formalizes detecting novel sound events from a handful of labeled examples
+\citep{nolasco2023dcase}. Our prototype stage is in this spirit, since a class is defined by a few
+verified positives, but we couple it to a background-only anomaly gate and an
 explicit unknown option, so the system flags before any labels exist and
 abstains when no prototype matches.
-% CITE: DCASE Task 5 few-shot bioacoustic event detection.
+
 
 \paragraph{Open-set recognition and OOD detection.} Open-set recognition asks a
 classifier to reject inputs outside its training classes; a large OOD-detection
 literature scores novelty, including Mahalanobis distance in a deep feature
-space. We adopt the Mahalanobis-in-embedding scoring but invert the usual
+space \citep{lee2018mahalanobis}. We adopt the Mahalanobis-in-embedding scoring but invert the usual
 framing: the ``in-distribution'' density is \emph{normal forest background}, not
 the labeled classes, so the detector is trained without any positives and known
 classes enter only as post-hoc prototypes.
-% CITE: Mahalanobis OOD detection; open-set recognition surveys.
+
 
 \paragraph{Prototypical and metric learning.} Class-mean prototypes with cosine
-similarity are standard in few-shot metric learning. Our contribution is not the
+similarity are standard in few-shot metric learning \citep{snell2017prototypical}. Our contribution is not the
 prototype but its role in a deployable pipeline: prototypes are optional,
 incrementally updatable from human confirmations, and gated behind a
 background-calibrated anomaly threshold with reserved unknown mass.
-% CITE: Prototypical Networks; deep metric learning.
 
-\paragraph{Transfer of pretrained audio embeddings.} Large audio taggers (e.g.\
-AudioSet-pretrained CNNs) yield general-purpose embeddings that transfer across
-audio tasks. We use one as a frozen $\phi$ and show that the choice of embedding,
+
+\paragraph{Transfer of pretrained audio embeddings.} Large audio taggers pretrained on AudioSet \citep{gemmeke2017audioset}, such as
+CNN14 \citep{kong2020panns}, yield general-purpose embeddings that transfer
+across audio tasks, as does the bioacoustics-specific BirdNET
+\citep{kahl2021birdnet}. We use one as a frozen $\phi$ and show that the choice of embedding,
 not the detector head, governs cross-site deployability for forest threats.
-% CITE: PANNs / CNN14; YAMNet; AudioSet.
+
+
+\paragraph{Distribution shift, shortcut learning, and evaluation optimism.}
+Models often exploit spurious, environment-correlated features rather than the
+signal of interest \citep{geirhos2020shortcut}, and random train/test splits that share those confounds
+overstate generalization; sensor- and site-dependent background structure is a
+documented confound in bioacoustics \citep{lostanlen2019robust}, and random
+cross-validation over spatially structured ecological data is known to
+underestimate error \citep{roberts2017crossval}. Our diagnosis instantiates
+this for forest threat detection: a leakage-free but random split hides a
+cross-site collapse, and a linear probe shows the representation encodes site
+identity. We use leave-one-site-out evaluation and false-positive-budgeted recall
+to measure what random splits and accuracy conceal.
+

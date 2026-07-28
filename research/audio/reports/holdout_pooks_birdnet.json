@@ -1,0 +1,157 @@
+{
+  "manifest": "data/audio/manifests/threat_manifest_forest_v1b_pooks_holdout.csv",
+  "embedder_model": "birdnet",
+  "heldout_sites": [
+    "pooks"
+  ],
+  "fp_target": 0.1,
+  "sim_threshold": 0.5,
+  "temperature": 0.1,
+  "shrinkage": 0.1,
+  "counts": {
+    "train_background": 1290,
+    "train_positive_by_class": {
+      "chainsaw": 689
+    },
+    "val_background": 98,
+    "val_positive": 101,
+    "test_by_class": {
+      "background_unknown": 12,
+      "chainsaw": 10
+    }
+  },
+  "calibrated_threshold": 1.0000000000000002,
+  "val": {
+    "threshold": 1.0000000000000002,
+    "background_count": 98,
+    "background_fp_rate": 0.0,
+    "classes": {
+      "chainsaw": {
+        "count": 101,
+        "flagged_recall": 0.0,
+        "attributed_recall": 0.0,
+        "attributed_of_flagged": null,
+        "unknown_of_flagged": null
+      }
+    }
+  },
+  "test": {
+    "threshold": 1.0000000000000002,
+    "background_count": 12,
+    "background_fp_rate": 0.0,
+    "classes": {
+      "chainsaw": {
+        "count": 10,
+        "flagged_recall": 0.0,
+        "attributed_recall": 0.0,
+        "attributed_of_flagged": null,
+        "unknown_of_flagged": null
+      }
+    }
+  },
+  "test_threshold_sweeps": {
+    "chainsaw": {
+      "thresholds": [
+        0.4860869884450707,
+        0.5138344428595698,
+        0.5614230556335598,
+        0.6397357511665482,
+        0.6452791571669491,
+        0.695580232829198,
+        0.9022802951828232,
+        0.9508097416870038,
+        0.9591035854272393,
+        0.9709532314448274,
+        1.0
+      ],
+      "background_fp_rates": [
+        1.0,
+        0.9166666666666666,
+        0.9166666666666666,
+        0.8333333333333334,
+        0.8333333333333334,
+        0.8333333333333334,
+        0.75,
+        0.6666666666666666,
+        0.6666666666666666,
+        0.6666666666666666,
+        0.6666666666666666
+      ],
+      "recalls": [
+        1.0,
+        1.0,
+        0.9,
+        0.9,
+        0.8,
+        0.7,
+        0.7,
+        0.7,
+        0.6,
+        0.5,
+        0.4
+      ],
+      "auc": 0.4958333333333333
+    }
+  },
+  "prototype_k_curve": [
+    {
+      "k": 0,
+      "classes": {
+        "chainsaw": {
+          "attributed_recall_mean": 0.0,
+          "attributed_recall_std": 0.0,
+          "seeds": 1
+        }
+      }
+    },
+    {
+      "k": 1,
+      "classes": {
+        "chainsaw": {
+          "attributed_recall_mean": 0.0,
+          "attributed_recall_std": 0.0,
+          "seeds": 5
+        }
+      }
+    },
+    {
+      "k": 5,
+      "classes": {
+        "chainsaw": {
+          "attributed_recall_mean": 0.0,
+          "attributed_recall_std": 0.0,
+          "seeds": 5
+        }
+      }
+    },
+    {
+      "k": 10,
+      "classes": {
+        "chainsaw": {
+          "attributed_recall_mean": 0.0,
+          "attributed_recall_std": 0.0,
+          "seeds": 5
+        }
+      }
+    },
+    {
+      "k": 25,
+      "classes": {
+        "chainsaw": {
+          "attributed_recall_mean": 0.0,
+          "attributed_recall_std": 0.0,
+          "seeds": 5
+        }
+      }
+    }
+  ],
+  "unknown_class_holdout": {
+    "heldout_class": "chainsaw",
+    "remaining_prototypes": [],
+    "count": 10,
+    "flagged_recall": 0.0,
+    "predicted_unknown_of_flagged": null,
+    "mean_unknown_mass_of_flagged": null,
+    "misattributed_of_flagged": {}
+  }
+}

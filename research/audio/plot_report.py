@@ -14,15 +14,23 @@ import json
 from pathlib import Path
 
 
+def _rc():
+    import matplotlib.pyplot as plt
+    # Keep type >= 7pt at final single-column size.
+    plt.rcParams.update({"font.size": 8, "axes.titlesize": 8, "axes.labelsize": 8,
+                         "xtick.labelsize": 7.5, "ytick.labelsize": 7.5, "legend.fontsize": 7})
+
+
 def plot_k_curve(report: dict, out_dir: Path) -> Path | None:
     import matplotlib.pyplot as plt
+    _rc()
 
     curve = report.get("prototype_k_curve") or []
     if not curve:
         return None
     classes = sorted({label for entry in curve for label in entry["classes"]})
     ks = [entry["k"] for entry in curve]
-    fig, ax = plt.subplots(figsize=(4.2, 3.0))
+    fig, ax = plt.subplots(figsize=(3.4, 2.5))
     for label in classes:
         means = [entry["classes"].get(label, {}).get("attributed_recall_mean", float("nan")) for entry in curve]
         stds = [entry["classes"].get(label, {}).get("attributed_recall_std", 0.0) for entry in curve]
@@ -30,21 +38,22 @@ def plot_k_curve(report: dict, out_dir: Path) -> Path | None:
     ax.set_xlabel("verified positives per class ($k$)")
     ax.set_ylabel("attributed recall")
     ax.set_ylim(-0.02, 1.02)
-    ax.legend(frameon=False, fontsize=8)
+    ax.legend(frameon=False)
     fig.tight_layout()
     out = out_dir / "kcurve.pdf"
-    fig.savefig(out)
+    fig.savefig(out, bbox_inches="tight")
     plt.close(fig)
     return out
 
 
 def plot_roc(report: dict, out_dir: Path) -> Path | None:
     import matplotlib.pyplot as plt
+    _rc()
 
     sweeps = report.get("test_threshold_sweeps") or {}
     if not sweeps:
         return None
-    fig, ax = plt.subplots(figsize=(4.2, 3.0))
+    fig, ax = plt.subplots(figsize=(3.4, 2.5))
     for label, sweep in sweeps.items():
         ax.plot(sweep["background_fp_rates"], sweep["recalls"], marker=".", ms=3,
                 label=f"{label} (AUC={sweep['auc']:.2f})")
@@ -53,10 +62,10 @@ def plot_roc(report: dict, out_dir: Path) -> Path | None:
     ax.set_ylabel("flagged recall")
     ax.set_xlim(-0.02, 1.02)
     ax.set_ylim(-0.02, 1.02)
-    ax.legend(frameon=False, fontsize=8, loc="lower right")
+    ax.legend(frameon=False, loc="lower right")
     fig.tight_layout()
     out = out_dir / "roc.pdf"
-    fig.savefig(out)
+    fig.savefig(out, bbox_inches="tight")
     plt.close(fig)
     return out
 

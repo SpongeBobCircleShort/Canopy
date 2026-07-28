@@ -1,0 +1,76 @@
+{
+  "model": "models/audio/threat_cnn_expanded_hn_v4",
+  "model_trained_on_rfcx": false,
+  "manifest": "data/audio/manifests/threat_manifest_forest_v1b_tambopata_holdout.csv",
+  "split": "test",
+  "n_clips": 113,
+  "counts": {
+    "chainsaw": 41,
+    "background_unknown": 72
+  },
+  "deployment_thresholds": {
+    "chainsaw": 0.5,
+    "gunshot": 0.5,
+    "vehicle": 0.5,
+    "fire_crackle": 0.5,
+    "background_unknown": 0.5
+  },
+  "raw_argmax": {
+    "macro_f1": 0.13783542039355995,
+    "per_class_recall": {
+      "chainsaw": 0.04878048780487805,
+      "gunshot": null,
+      "vehicle": null,
+      "fire_crackle": null,
+      "background_unknown": 0.4305555555555556
+    },
+    "background_threat_fp_rate": 0.5694444444444444,
+    "ci": {
+      "chainsaw_recall": {
+        "point": 0.04878048780487805,
+        "lo": 0.0,
+        "hi": 0.1276595744680851,
+        "n_boot": 1000
+      },
+      "background_threat_fp_rate": {
+        "point": 0.5694444444444444,
+        "lo": 0.45454545454545453,
+        "hi": 0.6933387096774194,
+        "n_boot": 1000
+      }
+    }
+  },
+  "deployment_calibrated": {
+    "macro_f1": 0.1488888888888889,
+    "per_class_recall": {
+      "chainsaw": 0.0,
+      "gunshot": null,
+      "vehicle": null,
+      "fire_crackle": null,
+      "background_unknown": 0.9305555555555556
+    },
+    "background_threat_fp_rate": 0.06944444444444445,
+    "ci": {
+      "chainsaw_recall": {
+        "point": 0.0,
+        "lo": 0.0,
+        "hi": 0.0,
+        "n_boot": 1000
+      },
+      "background_threat_fp_rate": {
+        "point": 0.06944444444444445,
+        "lo": 0.014925373134328358,
+        "hi": 0.1388888888888889,
+        "n_boot": 1000
+      }
+    }
+  },
+  "class_vs_background_auc": {
+    "chainsaw": {
+      "point": 0.6355013550135501,
+      "lo": 0.5149882235096649,
+      "hi": 0.7450254044730887,
+      "n_boot": 1000
+    }
+  }
+}

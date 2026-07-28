@@ -1,62 +1,102 @@
 \section{Introduction}
 
-Illegal logging is a leading driver of tropical forest loss, and its most
-reliable early signature is sound: chainsaws, vehicles, and gunshots carry for
-hundreds of meters under canopy that hides them from satellites for days to
-weeks. Low-cost acoustic sensors are therefore among the most widely deployed
-conservation technologies. The dominant recipe is a closed-set
-classifier --- train a CNN on labeled clips of $k$ threat classes, deploy, and
-alert when a class probability crosses a threshold.
+Illegal logging is a leading driver of tropical forest loss, with organized
+criminal activity implicated in a large share of it \citep{nellemann2012greencarbon},
+and its most reliable early signature is sound: chainsaws and vehicles are
+audible under canopy that hides the activity from optical satellites until after
+the trees are down. Passive acoustic monitoring has consequently become a
+standard conservation instrument, to the point that its bottleneck has shifted
+from collecting audio to interpreting it
+\citep{stowell2022bioacoustics,malerba2026pam}. The dominant recipe is a closed-set
+classifier: train a CNN on labeled clips of $k$ threat classes, deploy, and
+alert when a class probability crosses a threshold. This is not a strawman we
+construct: it is the recipe fielded conservation-acoustic systems actually run,
+and a global expert assessment of the field identifies manual validation of
+detector output as a standing bottleneck, since practitioners do not act on raw
+detections unchecked \citep{malerba2026pam}. The failure mode
+we measure is thus a property of the deployed paradigm, not of a weak baseline.
 
 This recipe embeds two assumptions that fail in conservation deployments.
 First, it assumes labeled positives from the deployment domain exist. They
 rarely do: a new reserve has no verified recordings of chainsaws \emph{under its
 own microphones, weather, and species chorus}, and public datasets are dominated
-by close-range, high-SNR urban recordings. Second, it assumes the threat
+by close-range, high-SNR urban recordings. Label scarcity is in fact the standing
+premise of the bioacoustics literature, which is why few-shot formulations are
+the field's dominant response \citep{stowell2022bioacoustics,nolasco2023dcase}. Second, it assumes the threat
 taxonomy is known in advance, so any sound outside the $k$ classes is silently
 mapped onto them or suppressed.
 
-We first quantify how badly the closed-set recipe travels. A CNN chainsaw
-detector trained on rainforest soundscapes from multiple sites, with
-leakage-checked splits and validation-calibrated thresholds, reaches only
-$0.195$ recall on a fully held-out site at a deployable background
-false-positive rate --- despite $0.976$ raw-argmax recall that would flag half
-of all background as threats (Section~\ref{sec:experiments}). The model learns
-a real chainsaw signal but not a decision boundary that transfers across sites. Our open-set detector, over a
-frozen general-purpose audio embedding, recovers a deployable operating point on
-the same held-out site --- $0.317$ flagged recall at $0.056$ background FP,
-exceeding the closed-set calibrated recall while using no labeled positives to
-decide what is anomalous.
+We first quantify how badly the closed-set recipe travels, and diagnose
+\emph{why} (Section~\ref{sec:diagnosis}). Across four held-out rainforest sites,
+with leakage-checked splits and validation-calibrated thresholds, we find three
+things. \textbf{(1) Random splits are optimistic}: a classifier at $0.907$
+in-domain accuracy detects essentially no chainsaws on any held-out site. This is
+the acoustic instance of a known hazard in spatially structured ecological data,
+where random cross-validation ignores dependence between nearby samples and
+underestimates predictive error, and block or grouped splits are the corrective
+\citep{roberts2017crossval}.
+\textbf{(2) The failure is operating-point transfer, not discrimination}: the
+score still ranks chainsaws above background (ROC-AUC up to $0.96$), but the
+source-calibrated threshold yields $0$ recall in the target domain, so
+false-positive control at a fixed budget, not accuracy, is the binding
+constraint. That a model's scores decalibrate under distribution shift even while
+its ranking survives is a documented failure mode
+\citep{snoek2019shift}; our contribution is to show that it, rather than
+discrimination, is what actually blocks deployment here. \textbf{(3) The representation encodes site}: recording site is
+linearly decodable from the embedding far above chance, and more strongly than
+event class, giving a mechanism for the failure. Sensor- and site-dependent
+background structure is known to break bioacoustic detectors moved to a new
+recording unit \citep{lostanlen2019robust}; we show it is legible directly in
+the representation, before it shows up in any metric. A CNN trained on rainforest
+soundscapes with a site held out confirms the pattern, reaching only $0.195$
+recall at a deployable false-positive rate despite $0.976$ raw-argmax recall.
+Our open-set detector, over a frozen general-purpose embedding, recovers a
+deployable operating point on the same held-out site, reaching $0.317$ flagged recall
+at $0.056$ background FP, exceeding the closed-set recall while using no labeled
+positives to decide what is anomalous.
 
 We argue the deployable formulation is open-set and background-first:
 \begin{enumerate}
 \item \textbf{Flag} a clip by how far it deviates from \emph{this forest's}
-      normal soundscape --- a density fit on unlabeled background audio alone,
+      normal soundscape, a density fit on unlabeled background audio alone,
       which every deployment can record on day one;
 \item \textbf{Attribute} flagged clips against per-class prototypes built from
-      whatever ranger-verified positives exist so far --- zero at launch;
+      whatever ranger-verified positives exist so far, zero at launch;
 \item \textbf{Abstain honestly}: when no prototype matches, report
       \emph{unknown} rather than forcing a known label.
 \end{enumerate}
 The decision threshold is calibrated to an explicit background false-positive
-budget, because ranger attention --- not accuracy --- is the scarce resource.
+budget, because ranger attention, not accuracy, is the scarce resource.
 
 Our contributions:
 \begin{itemize}
-\item A negative result with an audited protocol: closed-set acoustic threat
-      classifiers do not learn deployable cross-site decision boundaries, even
-      with in-domain multi-site training data.
-\item A background-only open-set detector --- shrunk-covariance Mahalanobis
+\item A diagnosis of closed-set failure under site-level shift with an audited,
+      leakage-free, multi-site protocol (Section~\ref{sec:diagnosis}), separating
+      three causes with bootstrap-quantified evidence: split optimism, an
+      operating-point (not discrimination) failure in which false-positive
+      control is the binding constraint, and a representation that encodes
+      recording site more strongly than event class. To our knowledge this is the
+      first study to attribute bioacoustic threat-detection failure to
+      site-encoding via a linear-probe analysis.
+\item A background-only open-set detector, built from a shrunk-covariance Mahalanobis
       density over a frozen pretrained embedding, quantile-mapped scores, an
       FP-budget threshold, and prototype attribution with reserved unknown
-      mass --- that ships with zero labeled threats and improves monotonically
+      mass, that ships with zero labeled threats and improves monotonically
       as verified positives arrive, without retraining.
-\item A site-held-out evaluation across RFCx rainforest sites measuring
-      flagging, attribution, the attribution-vs-verified-positives curve, and
+\item A site-held-out evaluation across four RFCx sites measuring flagging,
+      attribution, the attribution-vs-verified-positives curve, and
       honest-unknown behavior under class holdout. The embedding, not the
-      detector head, is what governs cross-site deployability: a frozen AudioSet
-      encoder clears chance-level separability at every site where the
-      forest-CNN embedding does not.
-\item An open-source deployment (Canopy) in which the ranger review loop
+      detector head, governs cross-site deployability: frozen general-purpose
+      encoders clear chance separability at every site where the site-trained
+      representation does not.
+\item A measurement of what label-free operation costs. A supervised probe on
+      the \emph{same} frozen embeddings, under the identical protocol, gives the
+      label-rich upper bound per representation (weighted AUROC $0.783$ AudioSet,
+      $0.786$ BirdNET, $0.648$ site-trained). Labels roughly double recall, but
+      the label-free detector is the one that runs on day one. We also show an
+      embedding can rank well and still be undeployable: BirdNET is the best
+      probe substrate yet flags nothing under a transferred threshold, which is
+      the same operating-point failure in unsupervised form.
+\item An open-source deployment in which the ranger review loop
       closes the label flywheel: confirmed alerts become prototype updates.
 \end{itemize}

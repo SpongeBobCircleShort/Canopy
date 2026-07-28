@@ -1,0 +1,68 @@
+{
+  "fp_target": 0.1,
+  "embedders": {
+    "birdnet": {
+      "per_site": {
+        "tambopata": {
+          "n_test_chainsaw": 41,
+          "n_test_background": 72,
+          "auroc": 0.7374661246612465,
+          "auroc_ci95": [
+            0.6272921074642799,
+            0.8343539295832608
+          ],
+          "threshold": 0.6354042731300464,
+          "clip_recall_at_fp": 0.4634146341463415,
+          "test_fp": 0.05555555555555555,
+          "event_recall_at_fp": 0.4634146341463415,
+          "n_events": 41
+        },
+        "romania": {
+          "n_test_chainsaw": 30,
+          "n_test_background": 15,
+          "auroc": 0.9733333333333334,
+          "auroc_ci95": [
+            0.911953456221198,
+            1.0
+          ],
+          "threshold": 2.481690722656304,
+          "clip_recall_at_fp": 0.9333333333333333,
+          "test_fp": 0.06666666666666667,
+          "event_recall_at_fp": 0.9655172413793104,
+          "n_events": 29
+        },
+        "pooks": {
+          "n_test_chainsaw": 10,
+          "n_test_background": 12,
+          "auroc": 0.8333333333333334,
+          "auroc_ci95": [
+            0.6324786324786325,
+            0.9905006105006106
+          ],
+          "threshold": 4.574181471712425,
+          "clip_recall_at_fp": 0.6,
+          "test_fp": 0.16666666666666666,
+          "event_recall_at_fp": 0.6,
+          "n_events": 10
+        },
+        "warsi": {
+          "n_test_chainsaw": 412,
+          "n_test_background": 198,
+          "auroc": 0.7765887025595762,
+          "auroc_ci95": [
+            0.7387316472741516,
+            0.8144980387417216
+          ],
+          "threshold": 0.6230699356023548,
+          "clip_recall_at_fp": 0.5024271844660194,
+          "test_fp": 0.10101010101010101,
+          "event_recall_at_fp": 0.5049261083743842,
+          "n_events": 406
+        }
+      },
+      "weighted_auroc": 0.7864583973610342,
+      "weighted_event_recall": 0.5314301701655693,
+      "weighted_clip_recall": 0.5273833671399595
+    }
+  }
+}
