@@ -1,27 +1,68 @@
 % AAAI-27 submission — AI for Social Impact track
-% Requires the AAAI-27 author kit (aaai2027.sty, aaai2027.bst) — see README.md.
-\documentclass[letterpaper]{article}
-\usepackage[submission]{aaai2027}  % from the AAAI-27 author kit
-\usepackage{times}
-\usepackage{helvet}
-\usepackage{courier}
-\usepackage[hyphens]{url}
-\usepackage{graphicx}
-\urlstyle{rm}
-\def\UrlFont{\rm}
-\usepackage{caption}
-\frenchspacing
-\setlength{\pdfpagewidth}{8.5in}
-\setlength{\pdfpageheight}{11in}
+% aaai2027.sty / aaai2027.bst are vendored from the AAAI-27 author kit.
+\documentclass[letterpaper]{article} % DO NOT CHANGE THIS
+\usepackage[submission]{aaai2027}  % DO NOT CHANGE THIS
+% Fonts (newtxtext, helvet, courier) are loaded by aaai2027.sty; do NOT add
+% times/helvet/courier here — the style forbids it.
+\usepackage[hyphens]{url}  % DO NOT CHANGE THIS
+\usepackage{graphicx} % DO NOT CHANGE THIS
+\urlstyle{rm} % DO NOT CHANGE THIS
+\def\UrlFont{\rm}  % DO NOT CHANGE THIS
+\usepackage{natbib}  % DO NOT CHANGE THIS AND DO NOT ADD ANY OPTIONS TO IT
+\usepackage{caption} % DO NOT CHANGE THIS AND DO NOT ADD ANY OPTIONS TO IT
+\frenchspacing  % DO NOT CHANGE THIS
+\setlength{\pdfpagewidth}{8.5in}  % DO NOT CHANGE THIS
+\setlength{\pdfpageheight}{11in}  % DO NOT CHANGE THIS
 \usepackage{amsmath}
+\usepackage{amssymb}
 \usepackage{booktabs}
 
 \pdfinfo{
 /TemplateVersion (2027.1)
 }
 
+% Sections are referenced by number (\ref{sec:...}); enable numbering.
+\setcounter{secnumdepth}{2}
+
 \title{Listening Without Labels: Open-Set Acoustic Threat Detection\\
 for Forest Conservation from Background Audio Alone}
+
+% ---------------------------------------------------------------------------
+% AUTHORSHIP.
+% AAAI-27 main-track review is DOUBLE-BLIND: the submitted PDF must carry
+% "Anonymous submission" only. The real author block below is for the
+% camera-ready version. Do NOT uncomment it before acceptance -- naming
+% authors in the submission de-anonymizes the paper and risks desk rejection.
+%
+% CAMERA-READY RESTORE: the platform name ("Canopy") is withheld throughout for
+% anonymous review, since the public repository would identify the authors.
+% Restore it in main.tex (abstract), sections/introduction.tex (contributions),
+% and sections/deployment.tex (opening line) at camera-ready.
+%
+% NOTE: the [submission] option above hard-forces "Anonymous submission" in
+% \maketitle (aaai2027.sty clears \showauthors@on), so uncommenting the block
+% below is NOT enough on its own -- the option must also be dropped. A ready
+% camera-ready driver that does both lives in main_cameraready.tex.
+%
+% Camera-ready block (add emails, then swap in for the two active lines below):
+% \author{
+%     Arjun Tyagi\textsuperscript{\rm 1}\thanks{Corresponding author.},
+%     Arun Hariharan\textsuperscript{\rm 2},
+%     Hriday Matharu\textsuperscript{\rm 1},
+%     Pranav Tawakley\textsuperscript{\rm 3},
+%     Tanush Jhamb\textsuperscript{\rm 4},
+%     Tashi Shrivastava\textsuperscript{\rm 5}
+% }
+% \affiliations{
+%     \textsuperscript{\rm 1}Pennsylvania State University\\
+%     \textsuperscript{\rm 2}PES University, Bangalore\\
+%     \textsuperscript{\rm 3}Manipal University\\
+%     \textsuperscript{\rm 4}University of Essex\\
+%     \textsuperscript{\rm 5}Somaiya Vidyavihar\\
+%     % TODO before camera-ready: add contact email(s) and each author's
+%     % department.
+% }
+% ---------------------------------------------------------------------------
 \author{Anonymous submission}
 \affiliations{Anonymous submission}
 
@@ -30,39 +71,24 @@ for Forest Conservation from Background Audio Alone}
 \maketitle
 
 \begin{abstract}
-Acoustic monitoring is one of the cheapest scalable defenses against illegal
-logging, but deployed detectors are typically closed-set classifiers trained on
-public or urban recordings, and we show they do not survive contact with a new
-forest: a CNN chainsaw detector with strong in-domain validation collapses to
-0.195 recall on a fully held-out site once calibrated to a deployable
-false-positive rate. We argue the deployment-shaped constraint for conservation
-acoustics is not ``classify $k$ known threats,'' but ``flag what is unusual for
-\emph{this} forest, attribute it when evidence exists, and say \emph{unknown}
-otherwise --- starting from zero labeled threats.'' We present an open-set
-detector that fits a background density on unlabeled forest-at-rest audio over a
-frozen pretrained embedding, calibrates its decision threshold to a background
-false-positive gate, and attributes flagged clips with per-class prototypes
-built incrementally from ranger-verified positives, reserving honest
-\emph{unknown} mass for sounds matching no prototype. On a held-out rainforest
-site, a frozen AudioSet embedding lifts chainsaw-vs-background separability from
-chance (the forest-CNN embedding's AUC $0.32$) to AUC $0.71$, and the detector
-flags $0.317$ of chainsaws at a $0.056$ background false-positive rate ---
-exceeding the calibrated closed-set recall of $0.195$ while using no labeled
-positives for flagging. When a class's prototype is withheld, every flagged clip
-is honestly labeled \emph{unknown}.
-The detector is deployed in Canopy, an open-source forest monitoring platform,
-where ranger confirmations close the loop: each verified alert becomes a
-prototype update, with no retraining. We release code, fitted artifacts, and
-the full evaluation protocol.
+Acoustic monitoring is a scalable defense against illegal logging, but standard detectors, closed-set classifiers trained on public audio, fail on new forest sites. Using an audited, leakage-free, leave-one-site-out protocol across four rainforest locations, we show the breakdown is not in discrimination but in operating-point transfer: a classifier at $0.907$ in-domain accuracy detects essentially no chainsaws on any held-out site, even where its own score still ranks chainsaws above background at ROC-AUC $0.964$. A linear probe recovers recording site from the learned representation at $4\times$ chance and more strongly than it recovers event class, giving a mechanism for the failure. We propose a background-first, open-set detector that sidesteps the trap: it fits a density over a frozen general-purpose embedding on unlabeled deployment-site background, calibrates a threshold to an explicit background false-positive budget, and attributes flagged events with per-class prototypes built incrementally from ranger-verified positives, reserving honest \emph{unknown} mass otherwise. On the primary held-out site it reaches AUC $0.713$ and flags $0.317$ of chainsaws at a $0.056$ false-positive rate, exceeding the calibrated closed-set recall of $0.195$ while using zero labeled positives to decide what is anomalous. A supervised probe on the same frozen embeddings prices what label-free operation costs and isolates the binding constraint as representational: weighted AUROC is $0.783$ for AudioSet and $0.786$ for a bird-specific encoder (BirdNET), but only $0.648$ for the site-trained representation. Deployed in an open-source monitoring platform we release, ranger feedback closes the loop, with each verified alert becoming a prototype update and no retraining. We release code, fitted models, and the full protocol.
 \end{abstract}
 
 \input{sections/introduction}
 \input{sections/related}
+\input{sections/diagnosis}
 \input{sections/method}
 \input{sections/experiments}
 \input{sections/deployment}
 \input{sections/conclusion}
 
 \bibliography{references}
+
+% Reproducibility checklist: compiles standalone (`pdflatex ReproducibilityChecklist`)
+% for separate submission, or append it to this paper by uncommenting the two
+% lines below. Keep it out of the 7+2 main-content page count unless the track
+% requires it inline.
+% \makeatletter\def\isChecklistMainFile{}\makeatother
+% \input{ReproducibilityChecklist.tex}
 
 \end{document}

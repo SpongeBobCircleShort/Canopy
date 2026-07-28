@@ -9,12 +9,13 @@ two lightweight, closed-form stages over embeddings.
 \subsection{Stage 1: Background density and flagging}
 
 Given embeddings $\{\phi(x_i)\}$ of unlabeled forest-at-rest clips, we fit a
-Gaussian with a shrunk covariance for a well-conditioned inverse:
+Gaussian with a shrunk covariance for a well-conditioned inverse
+\citep{ledoit2004shrinkage}:
 \begin{equation}
 \hat\Sigma = (1-\alpha)\, S + \alpha\, \mathrm{diag}(S) + \epsilon I,
 \end{equation}
 where $S$ is the sample covariance and $\alpha$ the shrinkage. A clip's raw
-anomaly is its Mahalanobis distance
+anomaly is its Mahalanobis distance \citep{lee2018mahalanobis}
 $r(x) = \sqrt{(\phi(x)-\hat\mu)^\top \hat\Sigma^{-1} (\phi(x)-\hat\mu)}$.
 Raw distances are not comparable across sites, so we map them through the
 \emph{empirical background CDF}: the anomaly score $s(x)\in[0,1]$ is the
@@ -41,15 +42,18 @@ m = \mathrm{clip}\!\left(\frac{\sigma^\star - \theta}{1 - \theta},\, 0,\, 1\righ
 \end{equation}
 distributed over classes by a temperature-softmax of $\{\sigma_c\}$, with the
 remaining $1-m$ assigned to \emph{unknown}. With zero prototypes, $m = 0$ and
-every anomaly is honestly unknown --- flagging is unaffected. As verified
+every anomaly is honestly unknown, and flagging is unaffected. As verified
 positives arrive for a class, its prototype sharpens and its mass grows,
 \emph{monotonically and without retraining}, which is exactly the incremental
 behavior a ranger-in-the-loop deployment needs.
 
 \subsection{Embedding choice}
 
-$\phi$ is pluggable. We compare an in-house forest-trained CNN's pre-classifier
-feature against a frozen AudioSet-pretrained encoder (CNN14), evaluating each
-under identical background-density and prototype machinery. Because Stage~1 and
-Stage~2 are closed-form over embeddings, swapping $\phi$ is the only change
-required to test a new representation.
+$\phi$ is pluggable. We compare a site-trained CNN's pre-classifier feature
+($64$-d) against two frozen general-purpose encoders: AudioSet-pretrained CNN14
+($2048$-d) and BirdNET V2.4 ($1024$-d), a bioacoustics encoder trained for bird
+vocalization. All three are evaluated under identical background-density and
+prototype machinery. Because Stage~1 and Stage~2 are closed-form over
+embeddings, swapping $\phi$ is the only change required to test a new
+representation, which is what lets us attribute cross-site performance to the
+representation rather than the detector.

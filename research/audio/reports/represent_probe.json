@@ -1,0 +1,52 @@
+{
+  "manifest": "data/audio/manifests/threat_manifest_forest_v1b.csv",
+  "n_clips": 429,
+  "n_sites": 7,
+  "class_distribution": {
+    "background_unknown": 283,
+    "chainsaw": 146
+  },
+  "site_distribution": {
+    "mashpi": 57,
+    "palawan": 25,
+    "pooks": 22,
+    "romania": 44,
+    "tambopata": 101,
+    "tembe": 60,
+    "warsi": 120
+  },
+  "probes": {
+    "cnn:threat_cnn_kaggle_augmented_v1": {
+      "predict_class": {
+        "balanced_accuracy": 0.8543822919367384,
+        "std": 0.03863798716841991,
+        "n_splits": 5,
+        "n_classes": 2,
+        "chance": 0.5
+      },
+      "predict_site": {
+        "balanced_accuracy": 0.5999938157081014,
+        "std": 0.025346628058514318,
+        "n_splits": 5,
+        "n_classes": 7,
+        "chance": 0.14285714285714285
+      }
+    },
+    "panns_cnn14": {
+      "predict_class": {
+        "balanced_accuracy": 0.838874557082361,
+        "std": 0.026188664660791113,
+        "n_splits": 5,
+        "n_classes": 2,
+        "chance": 0.5
+      },
+      "predict_site": {
+        "balanced_accuracy": 0.5080674087816945,
+        "std": 0.029608844322296417,
+        "n_splits": 5,
+        "n_classes": 7,
+        "chance": 0.14285714285714285
+      }
+    }
+  }
+}

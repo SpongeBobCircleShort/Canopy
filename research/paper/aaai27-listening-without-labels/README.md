@@ -6,18 +6,24 @@ artifacts live in `research/audio/` at the repo root.
 
 ## Status
 
-Draft scaffold with all prose sections written. Every quantitative claim is
-marked `PLACEHOLDER` and wired to a specific output of the evaluation harness —
-fill from `research/audio/reports/*.json`.
+Complete draft. All quantitative claims regenerated from scratch (2026-07-28) and
+traced to committed report files; see the mapping below. Bibliography contains
+verified citations only.
 
 ## Build
 
-The AAAI-27 author kit is **not** vendored here (fetch it from the AAAI-27
-"Author Kit" page and drop `aaai2027.sty` / `aaai2027.bst` alongside `main.tex`).
+`aaai2027.sty` and `aaai2027.bst` are vendored from the AAAI-27 author kit; the
+preamble matches the official template (natbib, no forbidden font packages,
+`secnumdepth 2` so section cross-references resolve).
 
 ```bash
 pdflatex main && bibtex main && pdflatex main && pdflatex main
 ```
+
+No TeX toolchain is required to iterate on content — or upload the folder to
+Overleaf to compile with zero local install. `ReproducibilityChecklist.tex` is
+filled and compiles standalone (`pdflatex ReproducibilityChecklist`); it is
+wired as a commented optional `\input` in `main.tex`.
 
 ## Reproducing the numbers
 
@@ -59,21 +65,51 @@ python -m research.audio.eval_anomaly_holdout \
 
 ## Report -> paper mapping
 
-| Placeholder | Source |
+All numbers regenerated from scratch on 2026-07-28. Every value below traces to a
+committed report file.
+
+Diagnosis (Sec. 3):
+
+| Element | Source |
 | --- | --- |
-| Table 1 open-set rows | `reports/anomaly_holdout_*_*.json` -> `test.classes.chainsaw`, `test.background_fp_rate` |
-| Embedding AUC comparison | `report["test_threshold_sweeps"][class]["auc"]` |
-| Figure `kcurve` | `report["prototype_k_curve"]` |
-| Honest-unknown numbers | `report["unknown_class_holdout"]` |
-| Multi-site folds | one report per held-out site |
+| Table `diag-multisite` | `reports/crossdomain/threat_cnn_kaggle_augmented_v1__*_holdout.json` |
+| Table `diag-ablation` | `reports/crossdomain/SUMMARY.md` |
+| Table `diag-probe` + Fig `pca` | `reports/represent_probe.json`; `figures/pca_*.pdf` |
+| In-domain 0.907 accuracy | `models/audio/threat_cnn_kaggle_augmented_v1/test_metrics.json` |
+
+Experiments (Sec. 5):
+
+| Element | Source |
+| --- | --- |
+| Table `headline`, `folds` | `reports/holdout_{site}_{cnn,panns}.json` |
+| Table `probe` + Fig `transfer` | `reports/probe_holdout.json` |
+| Fig `kcurve` | `reports/holdout_tambopata_panns.json` -> `prototype_k_curve` |
+| BirdNET calibration failure | `reports/holdout_{site}_birdnet.json` (recall 0.000, AUC to 0.821) |
+| Honest-unknown | `reports/holdout_*.json` -> `unknown_class_holdout` |
+
+Regenerate everything:
+
+```bash
+for emb in cnn panns birdnet; do for site in tambopata warsi romania pooks; do
+  python -m research.audio.eval_anomaly_holdout \
+    --manifest data/audio/manifests/threat_manifest_forest_v1b_${site}_holdout.csv \
+    --embedder-model $emb --fp-target 0.10 --holdout-class chainsaw \
+    --out research/audio/reports/holdout_${site}_${emb}.json
+done; done
+python -m research.audio.eval_probe --embedders cnn,panns,birdnet --fp-target 0.10
+python -m research.audio.represent_probe --panns --min-site-count 20 --plot
+python -m research.audio.plot_probe && python -m research.audio.plot_report \
+  --report research/audio/reports/holdout_tambopata_panns.json
+```
 
 ## Pre-submission checklist
 
-- [ ] Replace every `PLACEHOLDER` in `sections/` and Table 1.
-- [ ] Replace all `references.bib` stubs with **verified** citations (AAAI-27
-      sanctions fabricated references — no LLM-invented bibliography entries).
-- [ ] Drop in the AAAI-27 `.sty`/`.bst` and confirm the 7+2 page limit.
-- [ ] Complete the AAAI reproducibility checklist.
+- [x] All `PLACEHOLDER` values replaced with re-run numbers.
+- [x] `references.bib` contains verified citations only (no invented entries).
+- [x] AAAI-27 `.sty`/`.bst` vendored; preamble reconciled to the official template.
+- [ ] Confirm the 7+2 page limit after compiling.
+- [ ] Add remaining citations for the conservation-acoustics and DCASE paragraphs.
+- [x] Complete the AAAI reproducibility checklist (`ReproducibilityChecklist.tex`).
 - [ ] Confirm dataset licenses (RFCx CC BY-NC 4.0, Kaggle, FSC22) permit the
       intended code/data release.
 - [ ] Register the abstract on OpenReview by **2026-07-21**; confirm the

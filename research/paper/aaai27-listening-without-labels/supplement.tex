@@ -1,0 +1,194 @@
+% Technical supplement, AAAI-27 anonymous submission.
+\documentclass[letterpaper]{article}
+\usepackage[submission]{aaai2027}
+\usepackage[hyphens]{url}
+\usepackage{graphicx}
+\urlstyle{rm}
+\def\UrlFont{\rm}
+\usepackage{natbib}
+\usepackage{caption}
+\frenchspacing
+\setlength{\pdfpagewidth}{8.5in}
+\setlength{\pdfpageheight}{11in}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{booktabs}
+
+\pdfinfo{/TemplateVersion (2027.1)}
+\setcounter{secnumdepth}{2}
+
+\title{Technical Supplement\\
+Listening Without Labels: Open-Set Acoustic Threat Detection\\
+for Forest Conservation from Background Audio Alone}
+\author{Anonymous submission}
+\affiliations{Anonymous submission}
+
+\begin{document}
+\maketitle
+
+\noindent This supplement provides experimental detail and extended results. The
+main paper is self-contained; nothing here is required to follow its argument.
+
+\section{Dataset and Split Construction}
+
+\paragraph{Corpora.} Evaluation uses Rainforest Connection rainforest soundscapes
+(CC BY-NC 4.0), which supply chainsaw and background clips annotated with a
+recording site. The closed-set training lineage additionally draws on public
+forest and urban corpora: FSC22 \citep{bandara2023fsc22}, ESC-50/FSD50K-derived
+negatives, DCASE machine sounds, and Kaggle chainsaw, gunshot, vehicle, and
+wildfire sets. No model evaluated for a cross-site claim was trained on any RFCx
+clip; we verified this directly over the training manifests, which contain zero
+rows with an RFCx source for every public-trained model in
+Table~\ref{tab:supp-ladder}.
+
+\paragraph{Site support.} Fourteen RFCx sites appear in the corpus, but most
+contribute background only. Four carry enough of both classes for a per-site
+estimate and are used throughout: warsi ($412$ chainsaw / $198$ background test
+clips), tambopata ($41/72$), romania ($30/15$), pooks ($10/12$). The remaining
+sites contribute background to training and to the representation probe, which
+uses seven sites with at least $20$ clips each.
+
+\paragraph{Leave-one-site-out construction.} For a held-out site $S$, every clip
+recorded at $S$ becomes the test split; train and validation are drawn from the
+remaining sites plus public data. Validation is used only to calibrate the
+decision threshold, never to select a model.
+
+\paragraph{Leakage audit.} RFCx clips are fixed-length windows cut from longer
+recordings, so filename-level disjointness is insufficient: two windows of one
+recording could otherwise straddle a split. We therefore key on the source
+recording, stripping the trailing \texttt{\_<start>-<end>} window index, and
+verify three properties per fold: zero held-out-site clips in train, zero in
+validation, and zero shared source recordings between any two splits. All four
+folds pass on all three counts.
+
+\section{Implementation Details}
+
+\paragraph{Detector hyperparameters.} Covariance shrinkage $\alpha = 0.1$ toward
+the diagonal with $\epsilon = 10^{-6}$ ridge; background-CDF quantile grid of
+$1001$ points; similarity floor $\theta = 0.5$; softmax temperature $0.1$;
+false-positive budget $\beta = 0.10$. These are defaults carried unchanged from
+the deployed platform rather than tuned per fold, which is why the paper reports
+a single operating point rather than a sweep.
+
+\paragraph{Embeddings.} Site-trained CNN: $64$-d pre-classifier feature, log-mel
+input, $16$\,kHz, $4$\,s clips, $64$ mels. AudioSet CNN14: $2048$-d, $32$\,kHz,
+via \texttt{panns\_inference} \citep{kong2020panns}. BirdNET V2.4: $1024$-d, via
+\texttt{birdnetlib} \citep{kahl2021birdnet} on the LiteRT runtime. All are frozen;
+no gradient reaches any encoder.
+
+\paragraph{Supervised probe.} Logistic regression, \texttt{max\_iter}~$=2000$,
+balanced class weights, on standardized features fit on the training split only.
+The decision threshold is the $1-\beta$ quantile of validation-background scores.
+
+\paragraph{Randomness and compute.} Bootstrap resampling ($1000$ draws) and
+prototype subsampling use fixed seeds. Experiments run on CPU/Apple-Silicon under
+macOS with PyTorch~2.7; a full regeneration of every number in the paper takes
+approximately two hours, dominated by embedding extraction, which is cached.
+
+\section{Extended Results}
+
+\paragraph{Per-site supervised probe.} Table~\ref{tab:supp-probe} expands the
+main paper's aggregate probe table into per-site detail with bootstrap intervals.
+Two observations that the aggregate hides: the site-trained CNN attains high
+AUROC on the two smallest folds (romania $0.956$, pooks $0.917$) while collapsing
+on the largest (warsi $0.604$), which is why we weight by $n$; and BirdNET's
+advantage is concentrated in romania, where it converts a high AUROC into
+$0.966$ event recall at $0.067$ false positives, whereas the site-trained CNN at
+a comparable AUROC converts to only $0.138$.
+
+\begin{table}[t]
+\centering
+\caption{Per-site supervised leave-one-site-out probe over frozen embeddings, at
+a $0.10$ background-FP budget. Intervals are bootstrap $95\%$ CIs on AUROC.
+Clip and event recall are measured at the validation-calibrated threshold;
+``FP'' is the realized background false-positive rate on the held-out site.}
+\label{tab:supp-probe}
+\small\setlength{\tabcolsep}{3.5pt}
+\begin{tabular}{llrrrrr}
+\toprule
+Embedding & Site & $n_{\text{ch}}$ & AUROC [95\% CI] & Clip R & Event R & FP \\
+\midrule
+CNN & tambopata & 41  & 0.797 [.71,.88] & 0.341 & 0.341 & 0.056 \\
+CNN & warsi     & 412 & 0.604 [.56,.65] & 0.396 & 0.397 & 0.237 \\
+CNN & romania   & 30  & 0.956 [.86,1.0] & 0.133 & 0.138 & 0.000 \\
+CNN & pooks     & 10  & 0.917 [.76,1.0] & 0.100 & 0.100 & 0.000 \\
+\midrule
+AudioSet & tambopata & 41  & 0.717 [.60,.82] & 0.537 & 0.537 & 0.111 \\
+AudioSet & warsi     & 412 & 0.785 [.75,.82] & 0.595 & 0.594 & 0.167 \\
+AudioSet & romania   & 30  & 0.900 [.80,.98] & 0.733 & 0.759 & 0.133 \\
+AudioSet & pooks     & 10  & 0.625 [.36,.86] & 0.400 & 0.400 & 0.250 \\
+\midrule
+BirdNET & tambopata & 41  & 0.737 [.63,.83] & 0.463 & 0.463 & 0.056 \\
+BirdNET & warsi     & 412 & 0.777 [.74,.81] & 0.502 & 0.505 & 0.101 \\
+BirdNET & romania   & 30  & \textbf{0.973} [.91,1.0] & \textbf{0.933} & \textbf{0.966} & 0.067 \\
+BirdNET & pooks     & 10  & 0.833 [.63,.99] & 0.600 & 0.600 & 0.167 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Closed-set lineage across all four sites.} The main paper reports the
+training-recipe comparison on warsi, the highest-support fold.
+Table~\ref{tab:supp-ladder} gives the same recipes on all four held-out sites at
+their own validation-calibrated thresholds. The pattern is stable and slightly more nuanced than the single-site view
+suggests. Hard-negative mining is again the only lever that moves recall at all,
+and on tambopata it does hold the budget ($0.171$ recall at $0.014$ FP), but that
+recall is far below the closed-set model's own in-domain performance and it does
+not hold across sites: the same recipe reaches $0.495$ on warsi only by spending
+$0.136$ FP, and yields $0.033$ and $0.000$ on the two small folds. No recipe
+delivers usable recall while respecting the budget on every unseen site.
+
+\begin{table}[t]
+\centering
+\caption{Closed-set training lineage, deployment-calibrated chainsaw recall
+(R) and background threat-false-positive rate (F) per held-out site. Every model
+here contains zero RFCx clips in training.}
+\label{tab:supp-ladder}
+\small\setlength{\tabcolsep}{3pt}
+\begin{tabular}{lrrrrrrrr}
+\toprule
+& \multicolumn{2}{c}{tambopata} & \multicolumn{2}{c}{warsi}
+& \multicolumn{2}{c}{romania} & \multicolumn{2}{c}{pooks} \\
+\cmidrule(lr){2-3}\cmidrule(lr){4-5}\cmidrule(lr){6-7}\cmidrule(lr){8-9}
+Recipe & R & F & R & F & R & F & R & F \\
+\midrule
+baseline           & 0.000 & 0.028 & 0.005 & 0.030 & 0.000 & 0.133 & 0.000 & 0.250 \\
++ augmentation     & 0.000 & 0.014 & 0.002 & 0.066 & 0.000 & 0.000 & 0.000 & 0.167 \\
++ hard negatives   & \textbf{0.171} & 0.014 & \textbf{0.495} & 0.136 & 0.033 & 0.067 & 0.000 & 0.000 \\
++ more hard neg.   & 0.000 & 0.069 & 0.012 & 0.197 & 0.000 & 0.133 & 0.000 & 0.167 \\
++ expanded set     & 0.000 & 1.000 & 0.000 & 0.854 & 0.000 & 0.800 & 0.000 & 1.000 \\
++ DCASE machine    & 0.000 & 0.861 & 0.022 & 0.556 & 0.000 & 0.867 & 0.000 & 0.917 \\
++ conservative bg  & 0.000 & 0.500 & 0.000 & 0.040 & 0.000 & 0.867 & 0.000 & 0.417 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Where BirdNET's label-free detector fails.} Under the unsupervised
+detector, BirdNET flags nothing at any site ($0.000$ recall) despite
+threshold-free AUC as high as $0.821$ on romania. The cause is visible in the
+score distribution: BirdNET's background embedding cloud is tight enough that the
+$1-\beta$ quantile of the training-site background Mahalanobis distance lands
+above nearly all held-out-site scores, so the transferred threshold admits
+nothing. This is the same operating-point transfer failure diagnosed for the
+closed-set classifier, arising here without any supervision, and it is why the
+paper reports recall at a fixed budget alongside AUC rather than AUC alone.
+
+\paragraph{Honest-unknown holdout.} Removing chainsaw's prototype and re-scoring
+the held-out site's chainsaw clips leaves flagging unchanged by construction, and
+$100\%$ of flagged clips are predicted \emph{unknown} with mean unknown mass
+$1.0$ at every site with held-out chainsaws. With prototypes for other classes
+present, none of that mass is misattributed to them.
+
+\section{Reproduction}
+
+The code and data supplement contains the detector, both evaluation harnesses,
+the plotting scripts, all report files backing every number in the paper, the
+leave-one-site-out manifests, and the two CNN artifacts. Audio is not
+redistributed: the evaluation corpus is third-party under a NonCommercial
+license, so we ship manifests naming every clip instead. Every table and figure
+regenerates from the committed reports without audio; full re-runs additionally
+require the public corpus. The mathematics is NumPy-only and covered by $123$
+unit tests that run without the audio stack.
+
+\bibliography{references}
+
+\end{document}
